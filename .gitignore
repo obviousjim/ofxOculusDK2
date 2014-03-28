@@ -62,13 +62,13 @@ apps/*/*/Release Linux
 apps/*/*/Debug Linux64
 apps/*/*/Release Linux64
 
-
-
-apps/nmm/NMMVisualizer/bin/data/journeys/**
-apps/nmm/NMMVisualizer/bin/data/img_cache/**
-#/apps/nmm/_sharedTestingFiles/SampleLayout/Wave_layout_template_scaleREZ_04_cs3.ai
-#/apps/nmm/_sharedTestingFiles/SampleLayout/Wave_layout_template_scaleREZ_04_cs3.svg
-/apps/nmm/NMMVisualizer/bin/data/VisualizerSettings.xml
+*/bin/*.dll
+*/x64
+*.exe
+*.ilk
+*.pdb
+*.sdf
+*.suo
 
 #Android
 addons/Debug Android
@@ -88,11 +88,3 @@ apps/*/*/obj
 #apps/*/*/bin
 
 .csettings
-
-/apps/nmm/NMMPufferfish_DesignPrototype/bin/data/Puffersphere Settings_settings.xml
-/apps/nmm/NMMRenderer/bin/data/mpe_config.xml
-/apps/nmm/NMMRenderer/NMMRenderer.xcodeproj/focus.perspectivev3
-/apps/nmm/NMMRenderer/bin/data/LocalSettings.xml
-/apps/nmm/NMMAudioPlayer/bin/data/Test conflict_settings.xml
-/apps/nmm/NMMAudioPlayer/bin/data/Test navigation_settings.xml
-/apps/nmm/NMMAudioPlayer/bin/data/Test trade_settings.xml
