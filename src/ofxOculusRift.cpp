@@ -292,21 +292,21 @@ void ofxOculusRift::calculateHmdValues()
     
     // Configure Stereo settings. Default pixel density is 1.0f.
     static const float desiredPixelDensity = 1.0f;
-    Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left,  eyeFov[0], desiredPixelDensity);
-    Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], desiredPixelDensity);
+    Sizei recommendedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left,  eyeFov[0], desiredPixelDensity);
+    Sizei recommendedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], desiredPixelDensity);
         
 //    if (RendertargetIsSharedByBothEyes) {
     if (true) {
-            Sizei rtSize(recommenedTex0Size.w + recommenedTex1Size.w,
-                         Alg::Max(recommenedTex0Size.h, recommenedTex1Size.h));
+            Sizei rtSize(recommendedTex0Size.w + recommendedTex1Size.w,
+                         Alg::Max(recommendedTex0Size.h, recommendedTex1Size.h));
             
             // Use returned size as the actual RT size may be different due to HW limits.
 //            rtSize = EnsureRendertargetAtLeastThisBig(Rendertarget_BothEyes, rtSize);
         
             // Don't draw more then recommended size; this also ensures that resolution reported
             // in the overlay HUD size is updated correctly for FOV/pixel density change.
-            eyeRenderSize[0] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex0Size);
-            eyeRenderSize[1] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex1Size);
+            eyeRenderSize[0] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommendedTex0Size);
+            eyeRenderSize[1] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommendedTex1Size);
             
             // Store texture pointers that will be passed for rendering.
             // Same texture is used, but with different viewports.
@@ -361,10 +361,10 @@ void ofxOculusRift::calculateHmdValues()
 //                                                  MirrorToWindow ? "'M' - Mirror to Window [On]" : "'M' - Mirror to Window [Off]");
 //    }
     
+    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
+
+
     // EZ: Let's render manually for now...
-//    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
-//    
-//    
 //	ovrRenderAPIConfig config         = pRender->Get_ovrRenderAPIConfig();
 //    unsigned           distortionCaps = ovrDistortionCap_Chromatic |
 //    ovrDistortionCap_Vignette;
@@ -453,6 +453,12 @@ void ofxOculusRift::setupEyeParams(ovrEyeType eye){
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
 	
+    ovrPosef eyePose = ovrHmd_GetEyePose(hmd, eye);
+    Quatf orientation = Quatf(eyePose.Orientation);
+    orientationMatrix = toOf(Matrix4f(orientation));
+    Matrix4f proj = ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true);
+    
+//    cout << ofGetFrameNum() << ": " << eye << " " << orientationMatrix << endl;
 	
 //	if(bUsePredictedOrientation){
 //		orientationMatrix = toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
@@ -476,7 +482,8 @@ void ofxOculusRift::setupEyeParams(ovrEyeType eye){
 	ofViewport(toOf(eyeTexture[eye].Header.RenderViewport));
 //	ofMatrix4x4 viewAdjust = toOf(eyeRenderParams.ViewAdjust);
 //	ofMultMatrix(viewAdjust);
-	
+    
+//    cout << ofGetFrameNum() << " (" << eye << "): viewport = " << toOf(eyeTexture[eye].Header.RenderViewport) << endl;
 }
 
 ofRectangle ofxOculusRift::getOculusViewport(){
