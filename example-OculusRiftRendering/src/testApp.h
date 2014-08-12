@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxOculusRift.h"
+#include "ofxOculusDK2.h"
 
 typedef struct{
 	ofColor color;
@@ -32,7 +32,7 @@ class testApp : public ofBaseApp
 	void dragEvent(ofDragInfo dragInfo);
 	void gotMessage(ofMessage msg);
 
-	ofxOculusRift		oculusRift;
+	ofxOculusDK2		oculusRift;
 
 	ofLight				light;
 	ofEasyCam			cam;

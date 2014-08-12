@@ -88,3 +88,5 @@ apps/*/*/obj
 #apps/*/*/bin
 
 .csettings
+*.lib
+*.opensdf
