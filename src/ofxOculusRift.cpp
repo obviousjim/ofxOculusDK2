@@ -84,12 +84,18 @@ Matrix4f toOVR(const ofMatrix4x4& m){
 					cm[12],cm[13],cm[14],cm[15]);
 }
 
-ofRectangle toOf(const OVR::Util::Render::Viewport vp){
-	return ofRectangle(vp.x,vp.y,vp.w,vp.h);
+ofRectangle toOf(const ovrRecti vp){
+	return ofRectangle(vp.Pos.x,vp.Pos.y,vp.Size.w,vp.Size.h);
 }
 
 ofxOculusRift::ofxOculusRift(){
-	baseCamera = NULL;
+    hmd = 0;
+    
+    bUsingDebugHmd = false;
+	bHmdSettingsChanged = false;
+    bPositionTrackingEnabled = true;
+    
+    baseCamera = NULL;
 	bSetup = false;
 	lockView = false;
 	bUsePredictedOrientation = true;
@@ -101,13 +107,21 @@ ofxOculusRift::ofxOculusRift(){
 
 ofxOculusRift::~ofxOculusRift(){
 	if(bSetup){
-		pSensor.Clear();
-        pHMD.Clear();
-		pManager.Clear();
+//		pSensor.Clear();
+//        pHMD.Clear();
+//		pManager.Clear();
+//        
+//        delete pFusionResult;
+//                
+//		System::Destroy();
         
-        delete pFusionResult;
-                
-		System::Destroy();
+        if (hmd) {
+            ovrHmd_Destroy(hmd);
+            hmd = 0;
+        }
+        
+        ovr_Shutdown();
+        
 		bSetup = false;
 	}
 }
@@ -120,49 +134,79 @@ bool ofxOculusRift::setup(){
 		return false;
 	}
 	
-	System::Init();
+//	System::Init();
+//    
+//    pFusionResult = new SensorFusion();
+//	pManager = *DeviceManager::Create();
+//	pHMD = *pManager->EnumerateDevices<HMDDevice>().CreateDevice();
+//    
+//	if (pHMD == NULL){
+//		ofLogError("ofxOculusRift::setup") << "HMD not found";
+//		return false;
+//	}
+//	
+//	if(!pHMD->GetDeviceInfo(&hmdInfo)){
+//		ofLogError("ofxOculusRift::setup") << "HMD Info not loaded";
+//		return false;
+//	}
+//	
+//	pSensor = *pHMD->GetSensor();
+//	if (pSensor == NULL){
+//		ofLogError("ofxOculusRift::setup") << "No sensor returned";
+//		return false;
+//	}
+//	
+//	if(!pFusionResult->AttachToSensor(pSensor)){
+//		ofLogError("ofxOculusRift::setup") << "Sensor Fusion failed";
+//		return false;
+//	}
     
-    pFusionResult = new SensorFusion();
-	pManager = *DeviceManager::Create();
-	pHMD = *pManager->EnumerateDevices<HMDDevice>().CreateDevice();
+    // Oculus HMD & Sensor Initialization
     
-	if (pHMD == NULL){
-		ofLogError("ofxOculusRift::setup") << "HMD not found";
-		return false;
+    ovr_Initialize();
+    
+	hmd = ovrHmd_Create(0);
+    
+	if (!hmd) {
+		// If we didn't detect an Hmd, create a simulated one for debugging.
+		hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
+		if (!hmd) {   // Failed Hmd creation.
+            ofLogError("ofxOculusRift::setup") << "HMD not found";
+			return false;
+		}
+        else {
+            ofLogNotice("ofxOculusRift::setup") << "HMD not found, creating simulated device.";
+            bUsingDebugHmd = true;
+        }
 	}
-	
-	if(!pHMD->GetDeviceInfo(&hmdInfo)){
-		ofLogError("ofxOculusRift::setup") << "HMD Info not loaded";
-		return false;
-	}
-	
-	pSensor = *pHMD->GetSensor();
-	if (pSensor == NULL){
-		ofLogError("ofxOculusRift::setup") << "No sensor returned";
-		return false;
-	}
-	
-	if(!pFusionResult->AttachToSensor(pSensor)){
-		ofLogError("ofxOculusRift::setup") << "Sensor Fusion failed";
-		return false;
-	}
-	
-	stereo.SetFullViewport(OVR::Util::Render::Viewport(0,0, hmdInfo.HResolution, hmdInfo.VResolution));
-	stereo.SetStereoMode(OVR::Util::Render::Stereo_LeftRight_Multipass);
-	stereo.SetHMDInfo(hmdInfo);
-    if (hmdInfo.HScreenSize > 0.0f)
-    {
-        if (hmdInfo.HScreenSize > 0.140f) // 7"
-            stereo.SetDistortionFitPointVP(-1.0f, 0.0f);
-        else
-            stereo.SetDistortionFitPointVP(0.0f, 1.0f);
+    
+    if (hmd->HmdCaps & ovrHmdCap_ExtendDesktop) {
+        windowSize = hmd->Resolution;
     }
-
-	renderScale = stereo.GetDistortionScale();
+    else {
+        // In Direct App-rendered mode, we can use smaller window size,
+        // as it can have its own contents and isn't tied to the buffer.
+        windowSize = Sizei(ofGetWidth(), ofGetHeight()); //Sizei(960, 540); avoid rotated output bug.
+    }
+    
+    // Setup System Window & Rendering
+    
+//	stereo.SetFullViewport(OVR::Util::Render::Viewport(0,0, hmdInfo.HResolution, hmdInfo.VResolution));
+//	stereo.SetStereoMode(OVR::Util::Render::Stereo_LeftRight_Multipass);
+//	stereo.SetHMDInfo(hmdInfo);
+//    if (hmdInfo.HScreenSize > 0.0f)
+//    {
+//        if (hmdInfo.HScreenSize > 0.140f) // 7"
+//            stereo.SetDistortionFitPointVP(-1.0f, 0.0f);
+//        else
+//            stereo.SetDistortionFitPointVP(0.0f, 1.0f);
+//    }
+//
+//	renderScale = stereo.GetDistortionScale();
 	
 	//account for render scale?
-	float w = hmdInfo.HResolution;
-	float h = hmdInfo.VResolution;
+	float w = windowSize.w;
+	float h = windowSize.h;
 	
 	renderTarget.allocate(w, h, GL_RGB);
     backgroundTarget.allocate(w/2, h);
@@ -205,6 +249,12 @@ bool ofxOculusRift::setup(){
 	rightEyeMesh.addTexCoord(ofVec2f(w,0));
 	
 	rightEyeMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
+    
+    bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position)? true : false;
+    
+    // Configure HMD Stereo Settings
+    
+    calculateHmdValues();
 	
 	reloadShader();
 	
@@ -218,8 +268,148 @@ bool ofxOculusRift::isSetup(){
 
 void ofxOculusRift::reset(){
 	if(bSetup){
-		pFusionResult->Reset();
+//		pFusionResult->Reset();
 	}
+}
+
+void ofxOculusRift::calculateHmdValues()
+{
+    // Initialize eye rendering information for ovrHmd_Configure.
+    // The viewport sizes are re-computed in case RenderTargetSize changed due to HW limitations.
+    ovrFovPort eyeFov[2];
+    eyeFov[0] = hmd->DefaultEyeFov[0];
+    eyeFov[1] = hmd->DefaultEyeFov[1];
+    
+    // Clamp Fov based on our dynamically adjustable FovSideTanMax.
+    // Most apps should use the default, but reducing Fov does reduce rendering cost.
+    static const float fovSideTanMax = 1.0f;
+    eyeFov[0] = FovPort::Min(eyeFov[0], FovPort(fovSideTanMax));
+    eyeFov[1] = FovPort::Min(eyeFov[1], FovPort(fovSideTanMax));
+    
+    // Configure Stereo settings. Default pixel density is 1.0f.
+    static const float desiredPixelDensity = 1.0f;
+    Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left,  eyeFov[0], desiredPixelDensity);
+    Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], desiredPixelDensity);
+        
+//    if (RendertargetIsSharedByBothEyes) {
+    if (true) {
+            Sizei rtSize(recommenedTex0Size.w + recommenedTex1Size.w,
+                         Alg::Max(recommenedTex0Size.h, recommenedTex1Size.h));
+            
+            // Use returned size as the actual RT size may be different due to HW limits.
+//            rtSize = EnsureRendertargetAtLeastThisBig(Rendertarget_BothEyes, rtSize);
+        
+            // Don't draw more then recommended size; this also ensures that resolution reported
+            // in the overlay HUD size is updated correctly for FOV/pixel density change.
+            eyeRenderSize[0] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex0Size);
+            eyeRenderSize[1] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex1Size);
+            
+            // Store texture pointers that will be passed for rendering.
+            // Same texture is used, but with different viewports.
+//            eyeTexture[0]                       = renderTarget.getTextureReference().getTextureData().textureID;
+            eyeTexture[0].Header.TextureSize    = rtSize;
+            eyeTexture[0].Header.RenderViewport = Recti(Vector2i(0), eyeRenderSize[0]);
+//            eyeTexture[1]                       = RenderTargets[Rendertarget_BothEyes].Tex;
+            eyeTexture[1].Header.TextureSize    = rtSize;
+            eyeTexture[1].Header.RenderViewport = Recti(Vector2i((rtSize.w+1)/2, 0), eyeRenderSize[1]);
+    }
+//    else {
+//        Sizei tex0Size = EnsureRendertargetAtLeastThisBig(Rendertarget_Left,  recommenedTex0Size);
+//        Sizei tex1Size = EnsureRendertargetAtLeastThisBig(Rendertarget_Right, recommenedTex1Size);
+//        
+//        EyeRenderSize[0] = Sizei::Min(tex0Size, recommenedTex0Size);
+//        EyeRenderSize[1] = Sizei::Min(tex1Size, recommenedTex1Size);
+//        
+//        // Store texture pointers and viewports that will be passed for rendering.
+//        EyeTexture[0]                       = RenderTargets[Rendertarget_Left].Tex;
+//        EyeTexture[0].Header.TextureSize    = tex0Size;
+//        EyeTexture[0].Header.RenderViewport = Recti(EyeRenderSize[0]);
+//        EyeTexture[1]                       = RenderTargets[Rendertarget_Right].Tex;
+//        EyeTexture[1].Header.TextureSize    = tex1Size;
+//        EyeTexture[1].Header.RenderViewport = Recti(EyeRenderSize[1]);
+//    }
+    
+    // Hmd caps.
+//    unsigned hmdCaps = (VsyncEnabled ? 0 : ovrHmdCap_NoVSync);
+    unsigned hmdCaps = 0;  // EZ: Assume vsync is on.
+    if (IsLowPersistence)
+        hmdCaps |= ovrHmdCap_LowPersistence;
+    
+    // ovrHmdCap_DynamicPrediction - enables internal latency feedback
+    if (DynamicPrediction)
+        hmdCaps |= ovrHmdCap_DynamicPrediction;
+    
+    // ovrHmdCap_DisplayOff - turns off the display
+    if (DisplaySleep)
+        hmdCaps |= ovrHmdCap_DisplayOff;
+    
+    if (!MirrorToWindow)
+        hmdCaps |= ovrHmdCap_NoMirrorToWindow;
+    
+    // If using our driver, display status overlay messages.
+    if (!(Hmd->HmdCaps & ovrHmdCap_ExtendDesktop) && (NotificationTimeout != 0.0f))
+    {
+        GetPlatformCore()->SetNotificationOverlay(0, 28, 8,
+                                                  "Rendering to the Hmd - Please put on your Rift");
+        GetPlatformCore()->SetNotificationOverlay(1, 24, -8,
+                                                  MirrorToWindow ? "'M' - Mirror to Window [On]" : "'M' - Mirror to Window [Off]");
+    }
+    
+    
+    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
+    
+    
+	ovrRenderAPIConfig config         = pRender->Get_ovrRenderAPIConfig();
+    unsigned           distortionCaps = ovrDistortionCap_Chromatic |
+    ovrDistortionCap_Vignette;
+    if (SupportsSrgb)
+        distortionCaps |= ovrDistortionCap_SRGB;
+	if(PixelLuminanceOverdrive)
+		distortionCaps |= ovrDistortionCap_Overdrive;
+    if (TimewarpEnabled)
+        distortionCaps |= ovrDistortionCap_TimeWarp;
+    if(TimewarpNoJitEnabled)
+        distortionCaps |= ovrDistortionCap_ProfileNoTimewarpSpinWaits;
+    
+    if (!ovrHmd_ConfigureRendering( Hmd, &config, distortionCaps,
+                                   eyeFov, EyeRenderDesc ))
+    {
+        // Fail exit? TBD
+        return;
+    }
+    
+//    if (ForceZeroIpd)
+//    {
+//        // Remove IPD adjust
+//        EyeRenderDesc[0].ViewAdjust = Vector3f(0);
+//        EyeRenderDesc[1].ViewAdjust = Vector3f(0);
+//    }
+    
+    unsigned sensorCaps = ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection;
+    if (bPositionTrackingEnabled) {
+        sensorCaps |= ovrTrackingCap_Position;
+    }
+    
+    if (StartTrackingCaps != sensorCaps) {
+        ovrHmd_ConfigureTracking(Hmd, sensorCaps, 0);
+        StartTrackingCaps = sensorCaps;
+    }
+    
+    // Calculate projections
+    Projection[0] = ovrMatrix4f_Projection(EyeRenderDesc[0].Fov,  0.01f, 10000.0f, true);
+    Projection[1] = ovrMatrix4f_Projection(EyeRenderDesc[1].Fov,  0.01f, 10000.0f, true);
+    
+    float    orthoDistance = 0.8f; // 2D is 0.8 meter from camera
+    Vector2f orthoScale0   = Vector2f(1.0f) / Vector2f(EyeRenderDesc[0].PixelsPerTanAngleAtCenter);
+    Vector2f orthoScale1   = Vector2f(1.0f) / Vector2f(EyeRenderDesc[1].PixelsPerTanAngleAtCenter);
+    
+    OrthoProjection[0] = ovrMatrix4f_OrthoSubProjection(Projection[0], orthoScale0, orthoDistance,
+                                                        EyeRenderDesc[0].ViewAdjust.x);
+    OrthoProjection[1] = ovrMatrix4f_OrthoSubProjection(Projection[1], orthoScale1, orthoDistance,
+                                                        EyeRenderDesc[1].ViewAdjust.x);
+    
+    // all done
+    bHmdSettingsChanged = false;
 }
 
 ofQuaternion ofxOculusRift::getOrientationQuat(){

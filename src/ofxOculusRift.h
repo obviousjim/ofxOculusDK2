@@ -11,8 +11,28 @@
 
 #include "ofMain.h"
 
-#include "OVR.h"
+//#include "OVR.h"
+#include "OVR_Kernel.h"
 using namespace OVR;
+
+#include "OVR_CAPI.h"
+
+//#include "../CommonSrc/Platform/Platform_Default.h"
+//#include "../CommonSrc/Render/Render_Device.h"
+//#include "../CommonSrc/Render/Render_XmlSceneLoader.h"
+//#include "../CommonSrc/Platform/Gamepad.h"
+//#include "../CommonSrc/Util/OptionMenu.h"
+//#include "../CommonSrc/Util/RenderProfiler.h"
+
+#include "Util/Util_Render_Stereo.h"
+using namespace OVR::Util::Render;
+
+#include "Sensors/OVR_DeviceConstants.h"
+
+//using namespace OVR::OvrPlatform;
+//using namespace OVR::Render;
+
+
 #include <iostream>
 
 //#define STD_GRAV 9.81 // What SHOULD work with Rift, but off by 1000
@@ -39,6 +59,8 @@ class ofxOculusRift
 	void reset();
 	bool lockView;
     
+	void calculateHmdValues();
+	
 	//draw background, before rendering eyes
     void beginBackground();
     void endBackground();
@@ -54,8 +76,8 @@ class ofxOculusRift
 	void endRightEye();
 	
 	void draw();
-	
-	void setUsePredictedOrientation(bool usePredicted);
+    
+    void setUsePredictedOrientation(bool usePredicted);
 	bool getUsePredictiveOrientation();
 	
 	void reloadShader();
@@ -102,15 +124,26 @@ class ofxOculusRift
 
   private:
 	bool bSetup;
+    
+    bool bUsingDebugHmd;
+    bool bHmdSettingsChanged;
+    bool bPositionTrackingEnabled;
+    
 	bool bUsePredictedOrientation;
 	bool bUseBackground;
 	bool bUseOverlay;
 	float overlayZDistance;
-	Ptr<DeviceManager>	pManager;
-	Ptr<HMDDevice>		pHMD;
-	Ptr<SensorDevice>	pSensor;
-	SensorFusion*       pFusionResult;
-	HMDInfo				hmdInfo;
+
+    ovrHmd              hmd;
+    Sizei               windowSize;
+    ovrTexture          eyeTexture[2];
+    Sizei               eyeRenderSize[2];
+
+//	Ptr<DeviceManager>	pManager;
+//	Ptr<HMDDevice>		pHMD;
+//	Ptr<SensorDevice>	pSensor;
+//	SensorFusion*       pFusionResult;
+//	HMDInfo				hmdInfo;
 
 	OVR::Util::Render::StereoConfig stereo;
 	float renderScale;
@@ -124,8 +157,8 @@ class ofxOculusRift
 	ofFbo overlayTarget;
 	ofShader distortionShader;
 
-	void setupEyeParams(OVR::Util::Render::StereoEye eye);
-	void setupShaderUniforms(OVR::Util::Render::StereoEye eye);
+	void setupEyeParams(ovrEyeType eye);
+	void setupShaderUniforms(ovrEyeType eye);
 	
 	void renderOverlay();
 };
