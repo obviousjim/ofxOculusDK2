@@ -126,8 +126,12 @@ class ofxOculusRift
 	bool bSetup;
     
     bool bUsingDebugHmd;
+    unsigned startTrackingCaps;
+    
     bool bHmdSettingsChanged;
     bool bPositionTrackingEnabled;
+    bool bLowPersistence;
+    bool bDynamicPrediction;
     
 	bool bUsePredictedOrientation;
 	bool bUseBackground;
@@ -135,10 +139,15 @@ class ofxOculusRift
 	float overlayZDistance;
 
     ovrHmd              hmd;
-    Sizei               windowSize;
+    ovrEyeRenderDesc    eyeRenderDesc[2];
+    Matrix4f            eyeProjection[2];    // Projection matrix for eye.
+    Matrix4f            orthoProjection[2];  // Projection for 2D.
+    ovrPosef            eyeRenderPose[2];    // Poses we used for rendering.
     ovrTexture          eyeTexture[2];
-    Sizei               eyeRenderSize[2];
+    Sizei               eyeRenderSize[2];    // Saved render eye sizes; base for dynamic sizing.
 
+    Sizei               windowSize;
+    
 //	Ptr<DeviceManager>	pManager;
 //	Ptr<HMDDevice>		pHMD;
 //	Ptr<SensorDevice>	pSensor;
