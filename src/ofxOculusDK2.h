@@ -42,12 +42,12 @@ using namespace OVR::Util::Render;
 
 
 
-class ofxOculusRift
+class ofxOculusDK2
 {
   public:
 		
-	ofxOculusRift();
-	~ofxOculusRift();
+	ofxOculusDK2();
+	~ofxOculusDK2();
 	
 	//set a pointer to the camera you want as the base perspective
 	//the oculus rendering will create a stereo pair from this camera

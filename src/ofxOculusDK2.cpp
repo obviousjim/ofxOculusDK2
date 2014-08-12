@@ -7,7 +7,7 @@
 //  Updated by Jason Walters October 22 2013
 //
 
-#include "ofxOculusRift.h"
+#include "ofxOculusDK2.h"
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -88,7 +88,7 @@ ofRectangle toOf(const ovrRecti vp){
 	return ofRectangle(vp.Pos.x,vp.Pos.y,vp.Size.w,vp.Size.h);
 }
 
-ofxOculusRift::ofxOculusRift(){
+ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
     
     bUsingDebugHmd = false;
@@ -109,7 +109,7 @@ ofxOculusRift::ofxOculusRift(){
 	oculusScreenSpaceScale = 2;
 }
 
-ofxOculusRift::~ofxOculusRift(){
+ofxOculusDK2::~ofxOculusDK2(){
 	if(bSetup){
 //		pSensor.Clear();
 //        pHMD.Clear();
@@ -131,7 +131,7 @@ ofxOculusRift::~ofxOculusRift(){
 }
 
 
-bool ofxOculusRift::setup(){
+bool ofxOculusDK2::setup(){
 	
 	if(bSetup){
 		ofLogError("ofxOculusRift::setup") << "Already set up";
@@ -266,17 +266,17 @@ bool ofxOculusRift::setup(){
 	return true;
 }
 
-bool ofxOculusRift::isSetup(){
+bool ofxOculusDK2::isSetup(){
 	return bSetup;
 }
 
-void ofxOculusRift::reset(){
+void ofxOculusDK2::reset(){
 	if(bSetup){
 //		pFusionResult->Reset();
 	}
 }
 
-void ofxOculusRift::calculateHmdValues()
+void ofxOculusDK2::calculateHmdValues()
 {
     // Initialize eye rendering information for ovrHmd_Configure.
     // The viewport sizes are re-computed in case RenderTargetSize changed due to HW limitations.
@@ -292,21 +292,21 @@ void ofxOculusRift::calculateHmdValues()
     
     // Configure Stereo settings. Default pixel density is 1.0f.
     static const float desiredPixelDensity = 1.0f;
-    Sizei recommendedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left,  eyeFov[0], desiredPixelDensity);
-    Sizei recommendedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], desiredPixelDensity);
+    Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left,  eyeFov[0], desiredPixelDensity);
+    Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], desiredPixelDensity);
         
 //    if (RendertargetIsSharedByBothEyes) {
     if (true) {
-            Sizei rtSize(recommendedTex0Size.w + recommendedTex1Size.w,
-                         Alg::Max(recommendedTex0Size.h, recommendedTex1Size.h));
+            Sizei rtSize(recommenedTex0Size.w + recommenedTex1Size.w,
+                         Alg::Max(recommenedTex0Size.h, recommenedTex1Size.h));
             
             // Use returned size as the actual RT size may be different due to HW limits.
 //            rtSize = EnsureRendertargetAtLeastThisBig(Rendertarget_BothEyes, rtSize);
         
             // Don't draw more then recommended size; this also ensures that resolution reported
             // in the overlay HUD size is updated correctly for FOV/pixel density change.
-            eyeRenderSize[0] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommendedTex0Size);
-            eyeRenderSize[1] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommendedTex1Size);
+            eyeRenderSize[0] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex0Size);
+            eyeRenderSize[1] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex1Size);
             
             // Store texture pointers that will be passed for rendering.
             // Same texture is used, but with different viewports.
@@ -361,10 +361,10 @@ void ofxOculusRift::calculateHmdValues()
 //                                                  MirrorToWindow ? "'M' - Mirror to Window [On]" : "'M' - Mirror to Window [Off]");
 //    }
     
-    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
-
-
     // EZ: Let's render manually for now...
+//    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
+//    
+//    
 //	ovrRenderAPIConfig config         = pRender->Get_ovrRenderAPIConfig();
 //    unsigned           distortionCaps = ovrDistortionCap_Chromatic |
 //    ovrDistortionCap_Vignette;
@@ -420,17 +420,17 @@ void ofxOculusRift::calculateHmdValues()
     bHmdSettingsChanged = false;
 }
 
-ofQuaternion ofxOculusRift::getOrientationQuat(){
+ofQuaternion ofxOculusDK2::getOrientationQuat(){
 //	return toOf(pFusionResult->GetPredictedOrientation());
     return ofQuaternion();
 }
 
-ofMatrix4x4 ofxOculusRift::getOrientationMat(){
+ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
 //	return toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
     return ofMatrix4x4();
 }
 
-void ofxOculusRift::setupEyeParams(ovrEyeType eye){
+void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	
 //    OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams( eye );
 //	OVR::Util::Render::Viewport VP = eyeRenderParams.VP;
@@ -453,12 +453,6 @@ void ofxOculusRift::setupEyeParams(ovrEyeType eye){
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
 	
-    ovrPosef eyePose = ovrHmd_GetEyePose(hmd, eye);
-    Quatf orientation = Quatf(eyePose.Orientation);
-    orientationMatrix = toOf(Matrix4f(orientation));
-    Matrix4f proj = ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true);
-    
-//    cout << ofGetFrameNum() << ": " << eye << " " << orientationMatrix << endl;
 	
 //	if(bUsePredictedOrientation){
 //		orientationMatrix = toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
@@ -482,17 +476,16 @@ void ofxOculusRift::setupEyeParams(ovrEyeType eye){
 	ofViewport(toOf(eyeTexture[eye].Header.RenderViewport));
 //	ofMatrix4x4 viewAdjust = toOf(eyeRenderParams.ViewAdjust);
 //	ofMultMatrix(viewAdjust);
-    
-//    cout << ofGetFrameNum() << " (" << eye << "): viewport = " << toOf(eyeTexture[eye].Header.RenderViewport) << endl;
+	
 }
 
-ofRectangle ofxOculusRift::getOculusViewport(){
+ofRectangle ofxOculusDK2::getOculusViewport(){
 //	OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams( OVR::Util::Render::StereoEye_Left );
 //	return toOf(eyeRenderParams.VP);
     return toOf(eyeTexture[0].Header.RenderViewport);
 }
 
-void ofxOculusRift::reloadShader(){
+void ofxOculusDK2::reloadShader(){
 	//this allows you to hack on the shader if you'd like
 	if(ofFile("Shaders/HmdWarp.vert").exists() && ofFile("Shaders/HmdWarp.frag").exists()){
 		distortionShader.load("Shaders/HmdWarp");
@@ -506,7 +499,7 @@ void ofxOculusRift::reloadShader(){
 }
 
 
-void ofxOculusRift::beginBackground(){
+void ofxOculusDK2::beginBackground(){
 	bUseBackground = true;
     backgroundTarget.begin();
     ofClear(0.0, 0.0, 0.0);
@@ -516,14 +509,14 @@ void ofxOculusRift::beginBackground(){
     
 }
 
-void ofxOculusRift::endBackground(){
+void ofxOculusDK2::endBackground(){
     ofPopMatrix();
     ofPopView();
     backgroundTarget.end();
 }
 
 
-void ofxOculusRift::beginOverlay(float overlayZ, float width, float height){
+void ofxOculusDK2::beginOverlay(float overlayZ, float width, float height){
 	bUseOverlay = true;
 	overlayZDistance = overlayZ;
 	
@@ -552,13 +545,13 @@ void ofxOculusRift::beginOverlay(float overlayZ, float width, float height){
     ofPushMatrix();
 }
 
-void ofxOculusRift::endOverlay(){
+void ofxOculusDK2::endOverlay(){
     ofPopMatrix();
     ofPopView();
     overlayTarget.end();
 }
 
-void ofxOculusRift::beginLeftEye(){
+void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
 	
@@ -569,7 +562,7 @@ void ofxOculusRift::beginLeftEye(){
 	setupEyeParams(ovrEye_Left);
 }
 
-void ofxOculusRift::endLeftEye(){
+void ofxOculusDK2::endLeftEye(){
 	if(!bSetup) return;
 	
 	if(bUseOverlay){
@@ -580,7 +573,7 @@ void ofxOculusRift::endLeftEye(){
 	ofPopView();
 }
 
-void ofxOculusRift::beginRightEye(){
+void ofxOculusDK2::beginRightEye(){
 	if(!bSetup) return;
 	
 	ofPushView();
@@ -589,7 +582,7 @@ void ofxOculusRift::beginRightEye(){
 	setupEyeParams(ovrEye_Right);
 }
 
-void ofxOculusRift::endRightEye(){
+void ofxOculusDK2::endRightEye(){
 	if(!bSetup) return;
 
 	if(bUseOverlay){
@@ -601,7 +594,7 @@ void ofxOculusRift::endRightEye(){
 	renderTarget.end();	
 }
 
-void ofxOculusRift::renderOverlay(){
+void ofxOculusDK2::renderOverlay(){
 
 //	cout << "renering overlay!" << endl;
 	
@@ -634,7 +627,7 @@ void ofxOculusRift::renderOverlay(){
 
 }
 
-ofVec3f ofxOculusRift::worldToScreen(ofVec3f worldPosition, bool considerHeadOrientation){
+ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrientation){
 
 	if(baseCamera == NULL){
 		return ofVec3f(0,0,0);
@@ -670,7 +663,7 @@ ofVec3f ofxOculusRift::worldToScreen(ofVec3f worldPosition, bool considerHeadOri
 }
 
 //TODO head orientation not considered
-ofVec3f ofxOculusRift::screenToWorld(ofVec3f screenPt, bool considerHeadOrientation) {
+ofVec3f ofxOculusDK2::screenToWorld(ofVec3f screenPt, bool considerHeadOrientation) {
 
 	if(baseCamera == NULL){
 		return ofVec3f(0,0,0);
@@ -682,7 +675,7 @@ ofVec3f ofxOculusRift::screenToWorld(ofVec3f screenPt, bool considerHeadOrientat
 }
 
 //TODO head orientation not considered
-ofVec3f ofxOculusRift::screenToOculus2D(ofVec3f screenPt, bool considerHeadOrientation){
+ofVec3f ofxOculusDK2::screenToOculus2D(ofVec3f screenPt, bool considerHeadOrientation){
 
 	ofRectangle viewport = getOculusViewport();
 //  viewport.x -= viewport.width  / 2;
@@ -694,17 +687,17 @@ ofVec3f ofxOculusRift::screenToOculus2D(ofVec3f screenPt, bool considerHeadOrien
 }
 
 //TODO: head position!
-ofVec3f ofxOculusRift::mousePosition3D(float z, bool considerHeadOrientation){
+ofVec3f ofxOculusDK2::mousePosition3D(float z, bool considerHeadOrientation){
 //	ofVec3f cursor3D = screenToWorld(cursor2D);
 	return screenToWorld(ofVec3f(ofGetMouseX(), ofGetMouseY(), z) );
 }
 
-float ofxOculusRift::distanceFromMouse(ofVec3f worldPoint){
+float ofxOculusDK2::distanceFromMouse(ofVec3f worldPoint){
 	//map the current 2D position into oculus space
 	return distanceFromScreenPoint(worldPoint, ofVec3f(ofGetMouseX(), ofGetMouseY()) );
 }
 
-float ofxOculusRift::distanceFromScreenPoint(ofVec3f worldPoint, ofVec2f screenPoint){
+float ofxOculusDK2::distanceFromScreenPoint(ofVec3f worldPoint, ofVec2f screenPoint){
 	ofVec3f cursorRiftSpace = screenToOculus2D(screenPoint);
 	ofVec3f targetRiftSpace = worldToScreen(worldPoint);
 	
@@ -714,7 +707,7 @@ float ofxOculusRift::distanceFromScreenPoint(ofVec3f worldPoint, ofVec2f screenP
 }
 
 
-void ofxOculusRift::multBillboardMatrix(){
+void ofxOculusDK2::multBillboardMatrix(){
 	if(baseCamera == NULL){
 		return;
 	}
@@ -730,13 +723,13 @@ void ofxOculusRift::multBillboardMatrix(){
 	ofRotate(angle, axis.x, axis.y, axis.z);
 }
 
-ofVec2f ofxOculusRift::gazePosition2D(){
+ofVec2f ofxOculusDK2::gazePosition2D(){
     ofVec3f angles = getOrientationQuat().getEuler();
 	return ofVec2f(ofMap(angles.y, 90, -90, 0, ofGetWidth()),
                    ofMap(angles.z, 90, -90, 0, ofGetHeight()));
 }
 
-void ofxOculusRift::draw(){
+void ofxOculusDK2::draw(){
 	
 	if(!bSetup) return;
 	
@@ -767,7 +760,7 @@ void ofxOculusRift::draw(){
 	bUseBackground = false;
 }
 
-void ofxOculusRift::setupShaderUniforms(ovrEyeType eye){
+void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
 
 //	float w = .5;
 //	float h = 1.0;
@@ -814,10 +807,10 @@ void ofxOculusRift::setupShaderUniforms(ovrEyeType eye){
 //	cout << "	scale factor " << scaleFactor << endl;
 }
 
-void ofxOculusRift::setUsePredictedOrientation(bool usePredicted){
+void ofxOculusDK2::setUsePredictedOrientation(bool usePredicted){
 	bUsePredictedOrientation = usePredicted;
 }
-bool ofxOculusRift::getUsePredictiveOrientation(){
+bool ofxOculusDK2::getUsePredictiveOrientation(){
 	return bUsePredictedOrientation;
 }
 
