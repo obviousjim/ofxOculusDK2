@@ -55,13 +55,13 @@ static const char* OculusWarpVert = GLSL(120,
     "   vec3 TransformedG = mix ( TransformedGStart, TransformedGEnd, Color.a );\n"
     "   vec3 TransformedB = mix ( TransformedBStart, TransformedBEnd, Color.a );\n"
 #else
-    "   mat3 EyeRotation;\n"
-    "   EyeRotation[0] = mix ( EyeRotationStart[0], EyeRotationEnd[0], Color.a ).xyz;
-    "   EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], Color.a ).xyz;
-    "   EyeRotation[2] = mix ( EyeRotationStart[2], EyeRotationEnd[2], Color.a ).xyz;
-    "   vec3 TransformedR   = EyeRotation * TanEyeAngleR;
-    "   vec3 TransformedG   = EyeRotation * TanEyeAngleG;
-    "   vec3 TransformedB   = EyeRotation * TanEyeAngleB;
+		mat3 EyeRotation;
+		EyeRotation[0] = mix ( EyeRotationStart[0], EyeRotationEnd[0], Color.a ).xyz;
+		EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], Color.a ).xyz;
+		EyeRotation[2] = mix ( EyeRotationStart[2], EyeRotationEnd[2], Color.a ).xyz;
+		vec3 TransformedR   = EyeRotation * TanEyeAngleR;
+		vec3 TransformedG   = EyeRotation * TanEyeAngleG;
+		vec3 TransformedB   = EyeRotation * TanEyeAngleB;
 #endif
 
     // Project them back onto the Z=1 plane of the rendered images.
@@ -87,106 +87,20 @@ static const char* OculusWarpVert = GLSL(120,
 });
                                
 static const char* OculusWarpFrag = GLSL(120,
-//uniform vec2 LensCenter;
-//uniform vec2 ScreenCenter;
-//uniform vec2 Scale;
-//uniform vec2 ScaleIn;
-//uniform vec4 HmdWarpParam;
-//uniform vec4 ChromAbParam;
-//uniform sampler2DRect Texture0;
-//uniform vec2 dimensions;
-//varying vec2 oTexCoord;
-//
-//void main()
-//{
-//	vec2  theta = (oTexCoord - LensCenter) * ScaleIn; // Scales to [-1, 1]
-//	float rSq = theta.x * theta.x + theta.y * theta.y;
-//    vec2  theta1 = theta * (HmdWarpParam.x +
-//                            HmdWarpParam.y * rSq +
-//							HmdWarpParam.z * rSq * rSq +
-//                            HmdWarpParam.w * rSq * rSq * rSq);
-//    
-//    // Detect whether blue texture coordinates are out of range
-//    // since these will scale out the furthest.
-//    vec2 thetaBlue = theta1 * (ChromAbParam.z + ChromAbParam.w * rSq);
-//    vec2 tcBlue = LensCenter + Scale * thetaBlue;
-//    if (!all(equal(clamp(tcBlue, ScreenCenter - vec2(0.25, 0.5), ScreenCenter + vec2(0.25, 0.5)), tcBlue))) {
-//        gl_FragColor = vec4(0);
-//    }
-//    else {
-//        // Now do blue texture lookup.
-//        float blue = texture2DRect(Texture0, tcBlue * dimensions).b;
-//        
-//        // Do green lookup (no scaling).
-//        vec2 tcGreen = LensCenter + Scale * theta1;
-//        vec4 center = texture2DRect(Texture0, tcGreen * dimensions);
-//        
-//        // Do red scale and lookup.
-//        vec2 thetaRed = theta1 * (ChromAbParam.x + ChromAbParam.y * rSq);
-//        vec2 tcRed = LensCenter + Scale * thetaRed;
-//        float red = texture2DRect(Texture0, tcRed * dimensions).r;
-//        
-//        gl_FragColor = vec4(red, center.g, blue, center.a) * gl_Color;
-//    }
-//}
-uniform sampler2D Texture;
-uniform vec3 DistortionClearColor;
-uniform float EdgeFadeScale;
-uniform vec2 EyeToSourceUVScale;
-uniform vec2 EyeToSourceUVOffset;
-uniform vec2 EyeToSourceNDCScale;
-uniform vec2 EyeToSourceNDCOffset;
-uniform vec2 TanEyeAngleScale;
-uniform vec2 TanEyeAngleOffset;
-uniform vec4 HmdWarpParam;
-uniform vec4 ChromAbParam;
-
-varying vec4 oPosition;
-varying vec2 oTexCoord;
-
-void main()
-{
-    // Input oTexCoord is [-1,1] across the half of the screen used for a single eye.
-    vec2 TanEyeAngleDistorted = oTexCoord * TanEyeAngleScale + TanEyeAngleOffset;  // Scales to tan(thetaX),tan(thetaY), but still distorted (i.e. only the center is correct)
-    float  RadiusSq = TanEyeAngleDistorted.x * TanEyeAngleDistorted.x + TanEyeAngleDistorted.y * TanEyeAngleDistorted.y;
-    float Distort = 1.0 / ( 1.0 + RadiusSq * ( HmdWarpParam.y + RadiusSq * ( HmdWarpParam.z + RadiusSq * ( HmdWarpParam.w ) ) ) );
-    float DistortR = Distort * ( ChromAbParam.x + RadiusSq * ChromAbParam.y );
-    float DistortG = Distort;
-    float DistortB = Distort * ( ChromAbParam.z + RadiusSq * ChromAbParam.w );
-    vec2 TanEyeAngleR = DistortR * TanEyeAngleDistorted;
-    vec2 TanEyeAngleG = DistortG * TanEyeAngleDistorted;
-    vec2 TanEyeAngleB = DistortB * TanEyeAngleDistorted;
-
-    // These are now in "TanEyeAngle" space.
-    // The vectors (TanEyeAngleRGB.x, TanEyeAngleRGB.y, 1.0) are real-world vectors pointing from the eye to where the components of the pixel appear to be.
-    // If you had a raytracer, you could just use them directly.
-
-    // Scale them into ([0,0.5],[0,1]) or ([0.5,0],[0,1]) UV lookup space (depending on eye)
-    vec2 SourceCoordR = TanEyeAngleR * EyeToSourceUVScale + EyeToSourceUVOffset;
-        SourceCoordR.y = 1.0 - SourceCoordR.y;
-    vec2 SourceCoordG = TanEyeAngleG * EyeToSourceUVScale + EyeToSourceUVOffset;
-        SourceCoordG.y = 1.0 - SourceCoordG.y;
-    vec2 SourceCoordB = TanEyeAngleB * EyeToSourceUVScale + EyeToSourceUVOffset;
-        SourceCoordB.y = 1.0 - SourceCoordB.y;
-
-    // Find the distance to the nearest edge.
-    vec2 NDCCoord = TanEyeAngleG * EyeToSourceNDCScale + EyeToSourceNDCOffset;
-    float EdgeFadeIn = clamp ( EdgeFadeScale, 0.0, 1e5 ) * ( 1.0 - max ( abs ( NDCCoord.x ), abs ( NDCCoord.y ) ) );
-    if ( EdgeFadeIn < 0.0 )
+    uniform sampler2D Texture;
+    
+    varying vec4 oColor;
+    varying vec2 oTexCoord0;
+    varying vec2 oTexCoord1;
+    varying vec2 oTexCoord2;
+    
+    void main()
     {
-        gl_FragColor = vec4(DistortionClearColor.r, DistortionClearColor.g, DistortionClearColor.b, 1.0);
-        return;
-    }
-    EdgeFadeIn = clamp ( EdgeFadeIn, 0.0, 1.0 );
-
-    // Actually do the lookups.
-    float ResultR = texture2D(Texture, SourceCoordR).r;
-    float ResultG = texture2D(Texture, SourceCoordG).g;
-    float ResultB = texture2D(Texture, SourceCoordB).b;
-
-    gl_FragColor = vec4(ResultR * EdgeFadeIn, ResultG * EdgeFadeIn, ResultB * EdgeFadeIn, 1.0);
-}
-);
+       gl_FragColor.r = oColor.r * texture2D(Texture, oTexCoord0).r;
+       gl_FragColor.g = oColor.g * texture2D(Texture, oTexCoord1).g;
+       gl_FragColor.b = oColor.b * texture2D(Texture, oTexCoord2).b;
+       gl_FragColor.a = 1.0;
+    });
 
 ofQuaternion toOf(const Quatf& q){
 	return ofQuaternion(q.x, q.y, q.z, q.w);
@@ -956,8 +870,9 @@ void ofxOculusDK2::draw(){
 	
 	ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
 
+	///JG START HERE 
 	// Prepare for distortion rendering. 
-
+	/*
 	ShaderFill distortionShaderFill(DistortionData.Shaders);
 	distortionShaderFill.SetTexture(0, pRendertargetTexture);
 	distortionShaderFill.SetInputLayout(DistortionData.VertexIL);
@@ -976,9 +891,9 @@ void ofxOculusDK2::draw(){
 		pRender->Render(&distortionShaderFill,
 		DistortionData.MeshVBs[eyeIndex], DistortionData.MeshIBs[eyeIndex]);
 	}
-	
-	//pRender->Present( VSyncEnabled );
-	//pRender->WaitUntilGpuIdle(); //for lowest latency
+	*/
+
+	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
 
 	distortionShader.begin();
