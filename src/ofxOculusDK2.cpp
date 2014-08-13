@@ -11,30 +11,81 @@
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
-//uniform vec2 dimensions;
-//varying vec2 oTexCoord;
-// 
-//void main()
-//{
-//	oTexCoord = gl_MultiTexCoord0.xy / dimensions;
-//	gl_FrontColor = gl_Color;
-//	gl_Position = ftransform();
-//});
-uniform mat4 View;
-uniform mat4 Texm;
+    
+    uniform vec2 EyeToSourceUVScale;
+    uniform vec2 EyeToSourceUVOffset;
+    uniform mat4 EyeRotationStart;
+    uniform mat4 EyeRotationEnd;
 
-attribute vec4 Position;
-attribute vec2 TexCoord;
+    attribute vec2 Position;
+    attribute vec4 Color;
+    attribute vec2 TexCoord0;
+    attribute vec2 TexCoord1;
+    attribute vec2 TexCoord2;
 
-varying vec2 oTexCoord;
+    varying vec4 oColor;
+    varying vec2 oTexCoord0;
+    vvarying vec2 oTexCoord1;
+    varying vec2 oTexCoord2;
 
-void main()
-{
-    gl_Position = View * Position;
-    oTexCoord = vec2(Texm * vec4(TexCoord,0,1));
-}
-);
-                                         
+    void main()
+    {
+		gl_Position.x = Position.x;
+		gl_Position.y = Position.y;
+		gl_Position.z = 0.0;
+		gl_Position.w = 1.0;
+
+    // Vertex inputs are in TanEyeAngle space for the R,G,B channels (i.e. after chromatic aberration and distortion).
+    // These are now "real world" vectors in direction (x,y,1) relative to the eye of the HMD.
+		vec3 TanEyeAngleR = vec3 ( TexCoord0.x, TexCoord0.y, 1.0 );
+		vec3 TanEyeAngleG = vec3 ( TexCoord1.x, TexCoord1.y, 1.0 );
+		vec3 TanEyeAngleB = vec3 ( TexCoord2.x, TexCoord2.y, 1.0 );
+
+    // Accurate time warp lerp vs. faster
+#if 0
+    // Apply the two 3x3 timewarp rotations to these vectors.
+	"   vec3 TransformedRStart = (EyeRotationStart * vec4(TanEyeAngleR, 0)).xyz;\n"
+	"   vec3 TransformedGStart = (EyeRotationStart * vec4(TanEyeAngleG, 0)).xyz;\n"
+	"   vec3 TransformedBStart = (EyeRotationStart * vec4(TanEyeAngleB, 0)).xyz;\n"
+	"   vec3 TransformedREnd   = (EyeRotationEnd * vec4(TanEyeAngleR, 0)).xyz;\n"
+	"   vec3 TransformedGEnd   = (EyeRotationEnd * vec4(TanEyeAngleG, 0)).xyz;\n"
+	"   vec3 TransformedBEnd   = (EyeRotationEnd * vec4(TanEyeAngleB, 0)).xyz;\n"
+    // And blend between them.
+    "   vec3 TransformedR = mix ( TransformedRStart, TransformedREnd, Color.a );\n"
+    "   vec3 TransformedG = mix ( TransformedGStart, TransformedGEnd, Color.a );\n"
+    "   vec3 TransformedB = mix ( TransformedBStart, TransformedBEnd, Color.a );\n"
+#else
+    "   mat3 EyeRotation;\n"
+    "   EyeRotation[0] = mix ( EyeRotationStart[0], EyeRotationEnd[0], Color.a ).xyz;
+    "   EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], Color.a ).xyz;
+    "   EyeRotation[2] = mix ( EyeRotationStart[2], EyeRotationEnd[2], Color.a ).xyz;
+    "   vec3 TransformedR   = EyeRotation * TanEyeAngleR;
+    "   vec3 TransformedG   = EyeRotation * TanEyeAngleG;
+    "   vec3 TransformedB   = EyeRotation * TanEyeAngleB;
+#endif
+
+    // Project them back onto the Z=1 plane of the rendered images.
+    float RecipZR = 1.0 / TransformedR.z;
+    float RecipZG = 1.0 / TransformedG.z;
+    float RecipZB = 1.0 / TransformedB.z;
+    vec2 FlattenedR = vec2 ( TransformedR.x * RecipZR, TransformedR.y * RecipZR );
+    vec2 FlattenedG = vec2 ( TransformedG.x * RecipZG, TransformedG.y * RecipZG );
+    vec2 FlattenedB = vec2 ( TransformedB.x * RecipZB, TransformedB.y * RecipZB );
+
+    // These are now still in TanEyeAngle space.
+    // Scale them into the correct [0-1],[0-1] UV lookup space (depending on eye)
+    vec2 SrcCoordR = FlattenedR * EyeToSourceUVScale + EyeToSourceUVOffset;
+    vec2 SrcCoordG = FlattenedG * EyeToSourceUVScale + EyeToSourceUVOffset;
+    vec2 SrcCoordB = FlattenedB * EyeToSourceUVScale + EyeToSourceUVOffset;
+    oTexCoord0 = SrcCoordR;
+    oTexCoord0.y = 1.0-oTexCoord0.y;
+    oTexCoord1 = SrcCoordG;
+    oTexCoord1.y = 1.0-oTexCoord1.y;
+    oTexCoord2 = SrcCoordB;
+    oTexCoord2.y = 1.0-oTexCoord2.y;
+	oColor = vec4(Color.r, Color.r, Color.r, Color.r);              // Used for vignette fade.
+});
+                               
 static const char* OculusWarpFrag = GLSL(120,
 //uniform vec2 LensCenter;
 //uniform vec2 ScreenCenter;
@@ -156,8 +207,12 @@ Matrix4f toOVR(const ofMatrix4x4& m){
 					cm[12],cm[13],cm[14],cm[15]);
 }
 
-ofRectangle toOf(const ovrRecti vp){
+ofRectangle toOf(const ovrRecti& vp){
 	return ofRectangle(vp.Pos.x,vp.Pos.y,vp.Size.w,vp.Size.h);
+}
+
+ofVec3f toOf(const ovrVector3f& v){
+	return ofVec3f(v.x,v.y,v.z);
 }
 
 ofxOculusDK2::ofxOculusDK2(){
@@ -212,7 +267,7 @@ bool ofxOculusDK2::setup(){
 	
 //	System::Init();
 //    
-//    pFusionResult = new SensorFusion();
+//  pFusionResult = new SensorFusion();
 //	pManager = *DeviceManager::Create();
 //	pHMD = *pManager->EnumerateDevices<HMDDevice>().CreateDevice();
 //    
@@ -238,7 +293,6 @@ bool ofxOculusDK2::setup(){
 //	}
     
     // Oculus HMD & Sensor Initialization
-    
     ovr_Initialize();
     
 	hmd = ovrHmd_Create(0);
@@ -275,6 +329,8 @@ bool ofxOculusDK2::setup(){
 		ovrTrackingCap_Position, 0);
 	// Query the HMD for the current tracking state.
 
+	initializeClientRenderer();
+
     // Setup System Window & Rendering
     
 //	stereo.SetFullViewport(OVR::Util::Render::Viewport(0,0, hmdInfo.HResolution, hmdInfo.VResolution));
@@ -291,21 +347,20 @@ bool ofxOculusDK2::setup(){
 //	renderScale = stereo.GetDistortionScale();
 	
 	//account for render scale?
+	/*
 	float w = windowSize.w;
 	float h = windowSize.h;
 	
 	renderTarget.allocate(w, h, GL_RGB);
+	*/
+
+	//TODO: PULL BACKGROUND BACK IN
+	/*
     backgroundTarget.allocate(w/2, h);
-//    overlayTarget.allocate(256, 256, GL_RGBA);
-	
 	backgroundTarget.begin();
     ofClear(0.0, 0.0, 0.0);
 	backgroundTarget.end();
-	
-//	overlayTarget.begin();
-//	ofClear(0.0, 0.0, 0.0);
-//	overlayTarget.end();
-	
+		
 	//left eye
 	leftEyeMesh.addVertex(ofVec3f(0,0,0));
 	leftEyeMesh.addTexCoord(ofVec2f(0,h));
@@ -335,13 +390,84 @@ bool ofxOculusDK2::setup(){
 	rightEyeMesh.addTexCoord(ofVec2f(w,0));
 	
 	rightEyeMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-    
-    bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position)? true : false;
-    
+    */
+
+    bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 	reloadShader();
-	
 	bSetup = true;
 	return true;
+}
+
+void ofxOculusDK2::initializeClientRenderer(){
+
+	Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
+	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
+
+	Sizei renderTargetSize;
+	renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
+	renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
+
+	const int eyeRenderMultisample = 1;
+	renderTarget.allocate(renderTargetSize.w, renderTargetSize.h,GL_RGBA,eyeRenderMultisample);
+	
+
+	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
+	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
+
+	eyeRenderViewport[0].Pos  = Vector2i(0,0);
+    eyeRenderViewport[0].Size = Sizei(renderTargetSize.w / 2, renderTargetSize.h);
+    eyeRenderViewport[1].Pos  = Vector2i((renderTargetSize.w + 1) / 2, 0);
+    eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
+
+	//Generate distortion mesh for each eye
+	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
+		// Allocate & generate distortion mesh vertices.
+		ovrDistortionMesh meshData;
+		int caps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
+
+		ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, caps, &meshData);
+		ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], (ovrVector2f*) UVScaleOffset[eyeNum]);
+
+		// Now parse the vertex data and create a render ready vertex buffer from it
+//		DistortionVertex * pVBVerts = (DistortionVertex*)OVR_ALLOC(sizeof(DistortionVertex) * meshData.VertexCount );
+//		DistortionVertex * v = pVBVerts;
+		ofVboMesh& v = eyeMesh[eyeNum];
+		v.clear();
+		v.getVertices().resize(meshData.VertexCount);
+		v.getColors().resize(meshData.VertexCount);
+//		v.getTexCoords().resize(meshData.VertexCount);
+		v.getNormals().resize(meshData.VertexCount);
+
+		ovrDistortionVertex * ov = meshData.pVertexData;
+		for( unsigned vertNum = 0; vertNum < meshData.VertexCount; vertNum++ ){
+
+			v.getVertices()[vertNum].x = ov->ScreenPosNDC.x;
+			v.getVertices()[vertNum].y = ov->ScreenPosNDC.y;
+			v.getVertices()[vertNum].z = ov->TimeWarpFactor;
+
+			v.getNormals()[vertNum].x = ov->TanEyeAnglesR.x;
+			v.getNormals()[vertNum].y = ov->TanEyeAnglesR.y;
+			v.getNormals()[vertNum].z = ov->VignetteFactor;
+
+			v.getColors()[vertNum].r = ov->TanEyeAnglesG.x;
+			v.getColors()[vertNum].g = ov->TanEyeAnglesG.y;
+			v.getColors()[vertNum].b = ov->TanEyeAnglesB.x;
+			v.getColors()[vertNum].a = ov->TanEyeAnglesB.y;
+			
+			ov++;
+		}
+
+		//Register this mesh with the renderer
+		v.getIndices().resize(meshData.IndexCount);
+
+		unsigned short * oi = meshData.pIndexData;
+		for(int i = 0; i < meshData.IndexCount; i++){
+			v.getIndices()[i] = *oi;
+			oi++;
+		}
+
+		ovrHmd_DestroyDistortionMesh( &meshData );
+	}
 }
 
 bool ofxOculusDK2::isSetup(){
@@ -354,6 +480,7 @@ void ofxOculusDK2::reset(){
 	}
 }
 
+/*
 void ofxOculusDK2::calculateHmdValues()
 {
     // Initialize eye rendering information for ovrHmd_Configure.
@@ -497,6 +624,7 @@ void ofxOculusDK2::calculateHmdValues()
     // all done
     bHmdSettingsChanged = false;
 }
+*/
 
 ofQuaternion ofxOculusDK2::getOrientationQuat(){
 //	return toOf(pFusionResult->GetPredictedOrientation());
@@ -528,27 +656,29 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
 		glDisable(GL_LIGHTING);
 		glDisable(GL_DEPTH_TEST);
-		backgroundTarget.getTextureReference().draw(toOf(eyeTexture[eye].Header.RenderViewport));
+		backgroundTarget.getTextureReference().draw(toOf(eyeRenderViewport[eye]));
 		glPopAttrib();
 	}
 	
+	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
+
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
 	
-	ofMatrix4x4 projectionMatrix = toOf(eyeProjection[eye]);
-
+	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true));
 	ofLoadMatrix( projectionMatrix );
 	
+	//what to do about this 
+	//******************
+	//Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-WorldEyePosition);
+	//and this view adjust
+	//Matrix4f::Translation(EyeRenderDesc[eye].ViewAdjust) * view);
+	//******************
+
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
-	
-	
-//	if(bUsePredictedOrientation){
-//		orientationMatrix = toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
-//	}
-//	else{
-//		orientationMatrix = toOf(Matrix4f(pFusionResult->GetOrientation()));
-//	}
+		
+	orientationMatrix = getOrientationMat();
 	
 	ofMatrix4x4 headRotation = orientationMatrix;
 	if(baseCamera != NULL){
@@ -562,16 +692,17 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
 	}
 	
-	ofViewport(toOf(eyeTexture[eye].Header.RenderViewport));
-//	ofMatrix4x4 viewAdjust = toOf(eyeRenderParams.ViewAdjust);
-//	ofMultMatrix(viewAdjust);
+	ofViewport(toOf(eyeRenderViewport[eye]));
+	ofMatrix4x4 viewAdjust;
+	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+	ofMultMatrix(viewAdjust);
 	
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
 //	OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams( OVR::Util::Render::StereoEye_Left );
 //	return toOf(eyeRenderParams.VP);
-    return toOf(eyeTexture[0].Header.RenderViewport);
+    return toOf(eyeRenderViewport[0]);
 }
 
 void ofxOculusDK2::reloadShader(){
@@ -593,8 +724,7 @@ void ofxOculusDK2::beginBackground(){
     ofClear(0.0, 0.0, 0.0);
     ofPushView();
     ofPushMatrix();
-    ofViewport(getOculusViewport());
-    
+    ofViewport(getOculusViewport());   
 }
 
 void ofxOculusDK2::endBackground(){
@@ -643,6 +773,8 @@ void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
 	
+	frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
+
 	renderTarget.begin();
 	ofClear(0,0,0);
 	ofPushView();
@@ -729,8 +861,9 @@ ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrie
 //        ofMatrix4x4 projectionMatrixLeft = toOf(eyeRenderParams.Projection);
 //        eyeRenderParams = stereo.GetEyeRenderParams(OVR::Util::Render::StereoEye_Right);
 //        ofMatrix4x4 projectionMatrixRight = toOf(eyeRenderParams.Projection);
-        ofMatrix4x4 projectionMatrixLeft = toOf(eyeProjection[ovrEye_Left]);
-        ofMatrix4x4 projectionMatrixRight = toOf(eyeProjection[ovrEye_Right]);
+
+        ofMatrix4x4 projectionMatrixLeft = toOf(ovrMatrix4f_Projection(eyeRenderDesc[ovrEye_Left].Fov, 0.01f, 10000.0f, true));
+        ofMatrix4x4 projectionMatrixRight = toOf(ovrMatrix4f_Projection(eyeRenderDesc[ovrEye_Right].Fov, 0.01f, 10000.0f, true));
         
         ofMatrix4x4 modelViewMatrix = orientationMatrix;
         modelViewMatrix = modelViewMatrix * baseCamera->getGlobalTransformMatrix();
@@ -821,6 +954,33 @@ void ofxOculusDK2::draw(){
 	
 	if(!bSetup) return;
 	
+	ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
+
+	// Prepare for distortion rendering. 
+
+	ShaderFill distortionShaderFill(DistortionData.Shaders);
+	distortionShaderFill.SetTexture(0, pRendertargetTexture);
+	distortionShaderFill.SetInputLayout(DistortionData.VertexIL);
+	for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++) {
+		// Setup shader constants
+		DistortionData.Shaders->SetUniform2f("EyeToSourceUVScale",
+		DistortionData.UVScaleOffset[eyeIndex][0].x, DistortionData.UVScaleOffset[eyeIndex][0].y);
+		DistortionData.Shaders->SetUniform2f("EyeToSourceUVOffset",
+		DistortionData.UVScaleOffset[eyeIndex][1].x, DistortionData.UVScaleOffset[eyeIndex][1].y);
+		ovrMatrix4f timeWarpMatrices[2];
+		ovrHmd_GetEyeTimewarpMatrices(hmd, (ovrEyeType) eyeIndex, headPose[eyeIndex],
+		timeWarpMatrices);
+		DistortionData.Shaders->SetUniform4x4f("EyeRotationStart", Matrix4f(timeWarpMatrices[0]));
+		DistortionData.Shaders->SetUniform4x4f("EyeRotationEnd", Matrix4f(timeWarpMatrices[1]));
+		// Perform distortion
+		pRender->Render(&distortionShaderFill,
+		DistortionData.MeshVBs[eyeIndex], DistortionData.MeshIBs[eyeIndex]);
+	}
+	
+	//pRender->Present( VSyncEnabled );
+	//pRender->WaitUntilGpuIdle(); //for lowest latency
+	ovrHmd_EndFrameTiming(hmd);
+
 	distortionShader.begin();
 //	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
 //	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());

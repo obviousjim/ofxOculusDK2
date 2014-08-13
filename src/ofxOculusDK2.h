@@ -32,6 +32,9 @@ using namespace OVR::Util::Render;
 //using namespace OVR::OvrPlatform;
 //using namespace OVR::Render;
 
+#ifdef TARGET_WIN32
+//#include "
+#endif
 
 #include <iostream>
 
@@ -59,8 +62,13 @@ class ofxOculusDK2
 	void reset();
 	bool lockView;
     
-	void calculateHmdValues();
-	
+//	void calculateHmdValues();
+//	pRendertargetTexture;
+    //Ptr<DistortionRenderer> pRenderer;
+	//RenderDevice pRenderer;
+
+	//JG NEW SDK VARS
+
 	//draw background, before rendering eyes
     void beginBackground();
     void endBackground();
@@ -85,6 +93,7 @@ class ofxOculusDK2
 	ofQuaternion getOrientationQuat();
 	ofMatrix4x4 getOrientationMat();
 	
+
 	//default 1 has more constrained mouse movement,
 	//while turning it up increases the reach of the mouse
 	float oculusScreenSpaceScale;
@@ -139,12 +148,20 @@ class ofxOculusDK2
 	float overlayZDistance;
 
     ovrHmd              hmd;
-    ovrEyeRenderDesc    eyeRenderDesc[2];
-    Matrix4f            eyeProjection[2];    // Projection matrix for eye.
-    Matrix4f            orthoProjection[2];  // Projection for 2D.
-    ovrPosef            eyeRenderPose[2];    // Poses we used for rendering.
-    ovrTexture          eyeTexture[2];
-    Sizei               eyeRenderSize[2];    // Saved render eye sizes; base for dynamic sizing.
+   //ovrEyeRenderDesc    eyeRenderDesc[2];
+    //Matrix4f            eyeProjection[2];    // Projection matrix for eye.
+    //Matrix4f            orthoProjection[2];  // Projection for 2D.
+    //ovrPosef            eyeRenderPose[2];    // Poses we used for rendering.
+    //ovrTexture          eyeTexture[2];
+    //Sizei               eyeRenderSize[2];    // Saved render eye sizes; base for dynamic sizing.
+	ovrFovPort			eyeFov[2];
+	ovrEyeRenderDesc	eyeRenderDesc[2];
+	ovrRecti			eyeRenderViewport[2];
+	ovrVector2f			UVScaleOffset[2][2];
+	ofVboMesh			eyeMesh[2];
+
+	void initializeClientRenderer();
+
 
     Sizei               windowSize;
     
@@ -161,6 +178,7 @@ class ofxOculusDK2
 	
 	ofVboMesh leftEyeMesh;
 	ofVboMesh rightEyeMesh;
+
 	ofFbo renderTarget;
     ofFbo backgroundTarget;
 	ofFbo overlayTarget;
