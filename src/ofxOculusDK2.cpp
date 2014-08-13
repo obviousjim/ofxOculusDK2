@@ -11,59 +11,131 @@
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
-uniform vec2 dimensions;
+//uniform vec2 dimensions;
+//varying vec2 oTexCoord;
+// 
+//void main()
+//{
+//	oTexCoord = gl_MultiTexCoord0.xy / dimensions;
+//	gl_FrontColor = gl_Color;
+//	gl_Position = ftransform();
+//});
+uniform mat4 View;
+uniform mat4 Texm;
+
+attribute vec4 Position;
+attribute vec2 TexCoord;
+
 varying vec2 oTexCoord;
- 
+
 void main()
 {
-	oTexCoord = gl_MultiTexCoord0.xy / dimensions;
-	gl_FrontColor = gl_Color;
-	gl_Position = ftransform();
-});
-
+    gl_Position = View * Position;
+    oTexCoord = vec2(Texm * vec4(TexCoord,0,1));
+}
+);
+                                         
 static const char* OculusWarpFrag = GLSL(120,
-uniform vec2 LensCenter;
-uniform vec2 ScreenCenter;
-uniform vec2 Scale;
-uniform vec2 ScaleIn;
+//uniform vec2 LensCenter;
+//uniform vec2 ScreenCenter;
+//uniform vec2 Scale;
+//uniform vec2 ScaleIn;
+//uniform vec4 HmdWarpParam;
+//uniform vec4 ChromAbParam;
+//uniform sampler2DRect Texture0;
+//uniform vec2 dimensions;
+//varying vec2 oTexCoord;
+//
+//void main()
+//{
+//	vec2  theta = (oTexCoord - LensCenter) * ScaleIn; // Scales to [-1, 1]
+//	float rSq = theta.x * theta.x + theta.y * theta.y;
+//    vec2  theta1 = theta * (HmdWarpParam.x +
+//                            HmdWarpParam.y * rSq +
+//							HmdWarpParam.z * rSq * rSq +
+//                            HmdWarpParam.w * rSq * rSq * rSq);
+//    
+//    // Detect whether blue texture coordinates are out of range
+//    // since these will scale out the furthest.
+//    vec2 thetaBlue = theta1 * (ChromAbParam.z + ChromAbParam.w * rSq);
+//    vec2 tcBlue = LensCenter + Scale * thetaBlue;
+//    if (!all(equal(clamp(tcBlue, ScreenCenter - vec2(0.25, 0.5), ScreenCenter + vec2(0.25, 0.5)), tcBlue))) {
+//        gl_FragColor = vec4(0);
+//    }
+//    else {
+//        // Now do blue texture lookup.
+//        float blue = texture2DRect(Texture0, tcBlue * dimensions).b;
+//        
+//        // Do green lookup (no scaling).
+//        vec2 tcGreen = LensCenter + Scale * theta1;
+//        vec4 center = texture2DRect(Texture0, tcGreen * dimensions);
+//        
+//        // Do red scale and lookup.
+//        vec2 thetaRed = theta1 * (ChromAbParam.x + ChromAbParam.y * rSq);
+//        vec2 tcRed = LensCenter + Scale * thetaRed;
+//        float red = texture2DRect(Texture0, tcRed * dimensions).r;
+//        
+//        gl_FragColor = vec4(red, center.g, blue, center.a) * gl_Color;
+//    }
+//}
+uniform sampler2D Texture;
+uniform vec3 DistortionClearColor;
+uniform float EdgeFadeScale;
+uniform vec2 EyeToSourceUVScale;
+uniform vec2 EyeToSourceUVOffset;
+uniform vec2 EyeToSourceNDCScale;
+uniform vec2 EyeToSourceNDCOffset;
+uniform vec2 TanEyeAngleScale;
+uniform vec2 TanEyeAngleOffset;
 uniform vec4 HmdWarpParam;
 uniform vec4 ChromAbParam;
-uniform sampler2DRect Texture0;
-uniform vec2 dimensions;
+
+varying vec4 oPosition;
 varying vec2 oTexCoord;
 
 void main()
 {
-	vec2  theta = (oTexCoord - LensCenter) * ScaleIn; // Scales to [-1, 1]
-	float rSq = theta.x * theta.x + theta.y * theta.y;
-    vec2  theta1 = theta * (HmdWarpParam.x +
-                            HmdWarpParam.y * rSq +
-							HmdWarpParam.z * rSq * rSq +
-                            HmdWarpParam.w * rSq * rSq * rSq);
-    
-    // Detect whether blue texture coordinates are out of range
-    // since these will scale out the furthest.
-    vec2 thetaBlue = theta1 * (ChromAbParam.z + ChromAbParam.w * rSq);
-    vec2 tcBlue = LensCenter + Scale * thetaBlue;
-    if (!all(equal(clamp(tcBlue, ScreenCenter - vec2(0.25, 0.5), ScreenCenter + vec2(0.25, 0.5)), tcBlue))) {
-        gl_FragColor = vec4(0);
+    // Input oTexCoord is [-1,1] across the half of the screen used for a single eye.
+    vec2 TanEyeAngleDistorted = oTexCoord * TanEyeAngleScale + TanEyeAngleOffset;  // Scales to tan(thetaX),tan(thetaY), but still distorted (i.e. only the center is correct)
+    float  RadiusSq = TanEyeAngleDistorted.x * TanEyeAngleDistorted.x + TanEyeAngleDistorted.y * TanEyeAngleDistorted.y;
+    float Distort = 1.0 / ( 1.0 + RadiusSq * ( HmdWarpParam.y + RadiusSq * ( HmdWarpParam.z + RadiusSq * ( HmdWarpParam.w ) ) ) );
+    float DistortR = Distort * ( ChromAbParam.x + RadiusSq * ChromAbParam.y );
+    float DistortG = Distort;
+    float DistortB = Distort * ( ChromAbParam.z + RadiusSq * ChromAbParam.w );
+    vec2 TanEyeAngleR = DistortR * TanEyeAngleDistorted;
+    vec2 TanEyeAngleG = DistortG * TanEyeAngleDistorted;
+    vec2 TanEyeAngleB = DistortB * TanEyeAngleDistorted;
+
+    // These are now in "TanEyeAngle" space.
+    // The vectors (TanEyeAngleRGB.x, TanEyeAngleRGB.y, 1.0) are real-world vectors pointing from the eye to where the components of the pixel appear to be.
+    // If you had a raytracer, you could just use them directly.
+
+    // Scale them into ([0,0.5],[0,1]) or ([0.5,0],[0,1]) UV lookup space (depending on eye)
+    vec2 SourceCoordR = TanEyeAngleR * EyeToSourceUVScale + EyeToSourceUVOffset;
+        SourceCoordR.y = 1.0 - SourceCoordR.y;
+    vec2 SourceCoordG = TanEyeAngleG * EyeToSourceUVScale + EyeToSourceUVOffset;
+        SourceCoordG.y = 1.0 - SourceCoordG.y;
+    vec2 SourceCoordB = TanEyeAngleB * EyeToSourceUVScale + EyeToSourceUVOffset;
+        SourceCoordB.y = 1.0 - SourceCoordB.y;
+
+    // Find the distance to the nearest edge.
+    vec2 NDCCoord = TanEyeAngleG * EyeToSourceNDCScale + EyeToSourceNDCOffset;
+    float EdgeFadeIn = clamp ( EdgeFadeScale, 0.0, 1e5 ) * ( 1.0 - max ( abs ( NDCCoord.x ), abs ( NDCCoord.y ) ) );
+    if ( EdgeFadeIn < 0.0 )
+    {
+        gl_FragColor = vec4(DistortionClearColor.r, DistortionClearColor.g, DistortionClearColor.b, 1.0);
+        return;
     }
-    else {
-        // Now do blue texture lookup.
-        float blue = texture2DRect(Texture0, tcBlue * dimensions).b;
-        
-        // Do green lookup (no scaling).
-        vec2 tcGreen = LensCenter + Scale * theta1;
-        vec4 center = texture2DRect(Texture0, tcGreen * dimensions);
-        
-        // Do red scale and lookup.
-        vec2 thetaRed = theta1 * (ChromAbParam.x + ChromAbParam.y * rSq);
-        vec2 tcRed = LensCenter + Scale * thetaRed;
-        float red = texture2DRect(Texture0, tcRed * dimensions).r;
-        
-        gl_FragColor = vec4(red, center.g, blue, center.a) * gl_Color;
-    }
-});
+    EdgeFadeIn = clamp ( EdgeFadeIn, 0.0, 1.0 );
+
+    // Actually do the lookups.
+    float ResultR = texture2D(Texture, SourceCoordR).r;
+    float ResultG = texture2D(Texture, SourceCoordG).g;
+    float ResultB = texture2D(Texture, SourceCoordB).b;
+
+    gl_FragColor = vec4(ResultR * EdgeFadeIn, ResultG * EdgeFadeIn, ResultB * EdgeFadeIn, 1.0);
+}
+);
 
 ofQuaternion toOf(const Quatf& q){
 	return ofQuaternion(q.x, q.y, q.z, q.w);
