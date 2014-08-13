@@ -206,7 +206,7 @@ ofxOculusDK2::~ofxOculusDK2(){
 bool ofxOculusDK2::setup(){
 	
 	if(bSetup){
-		ofLogError("ofxOculusRift::setup") << "Already set up";
+		ofLogError("ofxOculusDK2::setup") << "Already set up";
 		return false;
 	}
 	
@@ -231,7 +231,7 @@ bool ofxOculusDK2::setup(){
 //		ofLogError("ofxOculusRift::setup") << "No sensor returned";
 //		return false;
 //	}
-//	
+//	ovr_Initialize();
 //	if(!pFusionResult->AttachToSensor(pSensor)){
 //		ofLogError("ofxOculusRift::setup") << "Sensor Fusion failed";
 //		return false;
@@ -243,15 +243,15 @@ bool ofxOculusDK2::setup(){
     
 	hmd = ovrHmd_Create(0);
     
-	if (!hmd) {
+	if(!hmd){
 		// If we didn't detect an Hmd, create a simulated one for debugging.
 		hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
 		if (!hmd) {   // Failed Hmd creation.
-            ofLogError("ofxOculusRift::setup") << "HMD not found";
+            ofLogError("ofxOculusDK2::setup") << "HMD not found";
 			return false;
 		}
         else {
-            ofLogNotice("ofxOculusRift::setup") << "HMD not found, creating simulated device.";
+            ofLogNotice("ofxOculusDK2::setup") << "HMD not found, creating simulated device.";
             bUsingDebugHmd = true;
         }
 	}
@@ -265,6 +265,16 @@ bool ofxOculusDK2::setup(){
         windowSize = Sizei(ofGetWidth(), ofGetHeight()); //Sizei(960, 540); avoid rotated output bug.
     }
     
+    // Configure HMD Stereo Settings
+    //calculateHmdValues();
+
+	// Start the sensor which provides the Rift’s pose and motion.
+	ovrHmd_ConfigureTracking(hmd, 
+		ovrTrackingCap_Orientation | 
+		ovrTrackingCap_MagYawCorrection | 
+		ovrTrackingCap_Position, 0);
+	// Query the HMD for the current tracking state.
+
     // Setup System Window & Rendering
     
 //	stereo.SetFullViewport(OVR::Util::Render::Viewport(0,0, hmdInfo.HResolution, hmdInfo.VResolution));
@@ -328,10 +338,6 @@ bool ofxOculusDK2::setup(){
     
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position)? true : false;
     
-    // Configure HMD Stereo Settings
-    
-    calculateHmdValues();
-	
 	reloadShader();
 	
 	bSetup = true;
@@ -494,11 +500,22 @@ void ofxOculusDK2::calculateHmdValues()
 
 ofQuaternion ofxOculusDK2::getOrientationQuat(){
 //	return toOf(pFusionResult->GetPredictedOrientation());
-    return ofQuaternion();
+
+	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
+	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
+		return toOf(ts.HeadPose.ThePose.Orientation);
+	}
+	 return ofQuaternion();
 }
 
 ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
-//	return toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
+	
+	//return toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
+	
+	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
+	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
+		return toOf( Matrix4f(ts.HeadPose.ThePose.Orientation));
+	}
     return ofMatrix4x4();
 }
 
@@ -569,7 +586,6 @@ void ofxOculusDK2::reloadShader(){
 		distortionShader.linkProgram();
 	}
 }
-
 
 void ofxOculusDK2::beginBackground(){
 	bUseBackground = true;
