@@ -1,4 +1,5 @@
 #version 120
+#extension GL_ARB_texture_rectangle : enable
 
 uniform vec2 EyeToSourceUVScale;
 uniform vec2 EyeToSourceUVOffset;
@@ -14,7 +15,7 @@ void main()
 {
 	gl_Position.x = gl_Vertex.x;
 	gl_Position.y = gl_Vertex.y;
-	gl_Position.z = 0.0;
+	gl_Position.z = .0;
 	gl_Position.w = 1.0;
 
 	// Vertex inputs are in TanEyeAngle space for the R,G,B channels (i.e. after chromatic aberration and distortion).
@@ -30,9 +31,9 @@ void main()
 	EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], gl_Vertex.z ).xyz;
 	EyeRotation[2] = mix ( EyeRotationStart[2], EyeRotationEnd[2], gl_Vertex.z ).xyz;
 
-	vec3 TransformedR   = EyeRotation * TanEyeAngleR;
-	vec3 TransformedG   = EyeRotation * TanEyeAngleG;
-	vec3 TransformedB   = EyeRotation * TanEyeAngleB;
+	vec3 TransformedR = EyeRotation * TanEyeAngleR;
+	vec3 TransformedG = EyeRotation * TanEyeAngleG;
+	vec3 TransformedB = EyeRotation * TanEyeAngleB;
 
 	// Project them back onto the Z=1 plane of the rendered images.
 	float RecipZR = 1.0 / TransformedR.z;
