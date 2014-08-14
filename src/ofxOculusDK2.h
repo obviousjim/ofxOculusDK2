@@ -27,6 +27,9 @@ using namespace OVR;
 #include "Util/Util_Render_Stereo.h"
 using namespace OVR::Util::Render;
 
+#include "CAPI/CAPI_HMDState.h"
+using namespace OVR::CAPI;
+
 #include "Sensors/OVR_DeviceConstants.h"
 
 //using namespace OVR::OvrPlatform;
@@ -181,6 +184,7 @@ class ofxOculusDK2
 	ofVboMesh leftEyeMesh;
 	ofVboMesh rightEyeMesh;
 
+    Sizei renderTargetSize;
 	ofFbo renderTarget;
     ofFbo backgroundTarget;
 	ofFbo overlayTarget;
