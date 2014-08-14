@@ -806,7 +806,7 @@ void ofxOculusDK2::draw(){
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
     
-	/*
+	
     // *** EZ BEGIN
     
 	ofDisableDepthTest();
@@ -824,7 +824,7 @@ void ofxOculusDK2::draw(){
 	distortionShader.end();
     
     // *** EZ END
-	*/
+	
 
 	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
 
