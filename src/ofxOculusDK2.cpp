@@ -289,7 +289,7 @@ bool ofxOculusDK2::setup(){
 	rightEyeMesh.addTexCoord(ofVec2f(w,0));
 	
 	rightEyeMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-    
+    */
 
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 	reloadShader();
