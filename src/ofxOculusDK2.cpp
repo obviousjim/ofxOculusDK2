@@ -289,7 +289,7 @@ bool ofxOculusDK2::setup(){
 	rightEyeMesh.addTexCoord(ofVec2f(w,0));
 	
 	rightEyeMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-    */
+    
 
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 	reloadShader();
@@ -887,7 +887,6 @@ void ofxOculusDK2::draw(){
 	*/
 
 	// JG Test Output
-//	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
 
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
@@ -943,6 +942,8 @@ void ofxOculusDK2::draw(){
 
 	distortionShader.end();
 	
+	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+
 	bUseOverlay = false;
 	bUseBackground = false;
 }
