@@ -267,7 +267,16 @@ bool ofxOculusDK2::setup(){
 	backgroundTarget.begin();
     ofClear(0.0, 0.0, 0.0);
 	backgroundTarget.end();
-		
+	*/
+    
+    // *** EZ BEGIN
+    
+    ofSetWindowShape(renderTargetSize.w, renderTargetSize.h);
+    cout << "RENDER TARGET SIZE: " << renderTargetSize.w << "x" << renderTargetSize.h << endl;
+    
+    float w = renderTargetSize.w;
+    float h = renderTargetSize.h;
+	
 	//left eye
 	leftEyeMesh.addVertex(ofVec3f(0,0,0));
 	leftEyeMesh.addTexCoord(ofVec2f(0,h));
@@ -297,7 +306,8 @@ bool ofxOculusDK2::setup(){
 	rightEyeMesh.addTexCoord(ofVec2f(w,0));
 	
 	rightEyeMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-    */
+    
+    // *** EZ END
 
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 	reloadShader();
@@ -790,12 +800,33 @@ void ofxOculusDK2::draw(){
 	distortionShader.end();
 	*/
 
-	// JG Test Output
-
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
     
-    // EZ
+    // *** EZ BEGIN
+    
+//	distortionShader.begin();
+//	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
+//	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
+//
+//	setupShaderUniforms(ovrEye_Left);
+//	leftEyeMesh.draw();
+//
+//	setupShaderUniforms(ovrEye_Right);
+//	rightEyeMesh.draw();
+//
+//	distortionShader.end();
+    
+    // *** EZ END
+	
+	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+
+	bUseOverlay = false;
+	bUseBackground = false;
+}
+
+void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
+    
     //    StereoEyeParams CalculateStereoEyeParams ( HmdRenderInfo const &hmd,
     //                                              StereoEye eyeType,
     //                                              Sizei const &actualRendertargetSurfaceSize,
@@ -806,30 +837,15 @@ void ofxOculusDK2::draw(){
     //                                              FovPort const *pOverrideFovport = NULL,
     //                                              float zoomFactor = 1.0f );
     HMDState* p = (HMDState *)hmd;
-    StereoEyeParams eyeParams = CalculateStereoEyeParams(p->RenderState.RenderInfo, StereoEye_Left, renderTargetSize, true);
-
-	distortionShader.begin();
-	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
-	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
-//	const OVR::Util::Render::DistortionConfig& distortionConfig = stereo.GetDistortionConfig();
-//    distortionShader.setUniform4f("HmdWarpParam",
-//								  distortionConfig.K[0],
-//								  distortionConfig.K[1],
-//								  distortionConfig.K[2],
-//								  distortionConfig.K[3]);
-    // EZ
+    StereoEyeParams eyeParams = CalculateStereoEyeParams(p->RenderState.RenderInfo, (eye == ovrEye_Left)? StereoEye_Left : StereoEye_Right, renderTargetSize, true);
+    
     // Note that the shader currently doesn't use Distortion.K[0], it hardwires it to 1.0.
     distortionShader.setUniform4f("HmdWarpParam",
                                   1.0f,
                                   eyeParams.Distortion.Lens.K[1],
                                   eyeParams.Distortion.Lens.K[2],
                                   eyeParams.Distortion.Lens.K[3]);
-//    distortionShader.setUniform4f("ChromAbParam",
-//                                  distortionConfig.ChromaticAberration[0],
-//                                  distortionConfig.ChromaticAberration[1],
-//                                  distortionConfig.ChromaticAberration[2],
-//                                  distortionConfig.ChromaticAberration[3]);
-    // EZ
+
     // These are stored as deltas off the "main" distortion coefficients, but
     // in the shader we use them as absolute values.
     distortionShader.setUniform4f("ChromAbParam",
@@ -849,48 +865,46 @@ void ofxOculusDK2::draw(){
 //	renderTarget.getTextureReference().draw(0, ofGetHeight(), ofGetWidth(), -ofGetHeight());
 	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
 
-	bUseOverlay = false;
-	bUseBackground = false;
-}
-
-void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
-
-//	float w = .5;
-//	float h = 1.0;
-//	float y = 0;
-//	float x;
-//	float xCenter;
+	float w = .5;
+	float h = 1.0;
+	float y = 0;
+	float x;
+	float xCenter;
 //	const OVR::Util::Render::DistortionConfig& distortionConfig = stereo.GetDistortionConfig();
-//	if(eye == OVR::Util::Render::StereoEye_Left){
-//		x = 0;
+	if(eye == ovrEye_Left){
+		x = 0;
 //		xCenter = distortionConfig.XCenterOffset;
-//	}
-//	else if(eye == OVR::Util::Render::StereoEye_Right){
-//		x = .5;
+        xCenter = eyeParams.Distortion.LensCenter.x;
+	}
+	else if(eye == ovrEye_Right){
+		x = .5;
 //		xCenter = -distortionConfig.XCenterOffset;
-//	}
-//    	
-//    float as = float(renderTarget.getWidth())/float(renderTarget.getHeight())*.5;
-//    // We are using 1/4 of DistortionCenter offset value here, since it is
-//    // relative to [-1,1] range that gets mapped to [0, 0.5].
-//	ofVec2f lensCenter(x + (w + xCenter * 0.5f)*0.5f,
-//					   y + h*0.5f);
-//	
+        xCenter = -eyeParams.Distortion.LensCenter.x;
+	}
+
+    float as = float(renderTarget.getWidth())/float(renderTarget.getHeight())*.5;
+    // We are using 1/4 of DistortionCenter offset value here, since it is
+    // relative to [-1,1] range that gets mapped to [0, 0.5].
+	ofVec2f lensCenter(x + (w + xCenter * 0.5f)*0.5f,
+					   y + h*0.5f);
+	
 //    distortionShader.setUniform2f("LensCenter", lensCenter.x, lensCenter.y);
-//	
-//	ofVec2f screenCenter(x + w*0.5f, y + h*0.5f);
-//    distortionShader.setUniform2f("ScreenCenter", screenCenter.x,screenCenter.y);
-//	
-//    // MA: This is more correct but we would need higher-res texture vertically; we should adopt this
-//    // once we have asymmetric input texture scale.
+    distortionShader.setUniform2f("LensCenter", eyeParams.Distortion.LensCenter.x, eyeParams.Distortion.LensCenter.y);
+	
+	ofVec2f screenCenter(x + w*0.5f, y + h*0.5f);
+    distortionShader.setUniform2f("ScreenCenter", screenCenter.x,screenCenter.y);
+	
+    // MA: This is more correct but we would need higher-res texture vertically; we should adopt this
+    // once we have asymmetric input texture scale.
 //    float scaleFactor = 1.0f / distortionConfig.Scale;
-//	//	cout << "scale factor " << scaleFactor << endl;
-//	
-//	ofVec2f scale( (w/2) * scaleFactor, (h/2) * scaleFactor * as);
-//	ofVec2f scaleIn( (2/w), (2/h) / as);
-//	
-//    distortionShader.setUniform2f("Scale", scale.x,scale.y);
-//    distortionShader.setUniform2f("ScaleIn",scaleIn.x,scaleIn.y);
+    float scaleFactor = 1.0f;
+	//	cout << "scale factor " << scaleFactor << endl;
+	
+	ofVec2f scale( (w/2) * scaleFactor, (h/2) * scaleFactor * as);
+	ofVec2f scaleIn( (2/w), (2/h) / as);
+	
+    distortionShader.setUniform2f("Scale", scale.x,scale.y);
+    distortionShader.setUniform2f("ScaleIn",scaleIn.x,scaleIn.y);
 
 //	cout << "UNIFORMS " << endl;
 //	cout << "	scale " << scale << endl;

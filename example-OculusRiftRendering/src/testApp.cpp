@@ -22,7 +22,6 @@ void testApp::setup()
 						  ofRandom(255),
 						  ofRandom(255));
 		
-//		d.pos = ofVec3f(ofRandom(-500, 500),0,ofRandom(-500,500));
 		d.pos = ofVec3f(ofRandom(-500, 500),0,ofRandom(-500,500));
 		
 		d.floatPos.x = d.pos.x;
@@ -111,8 +110,7 @@ void testApp::draw()
 		oculusRift.beginRightEye();
 		drawScene();
 		oculusRift.endRightEye();
-		ofPopMatrix();
-
+		
 		oculusRift.draw();
 		
 		glDisable(GL_DEPTH_TEST);
