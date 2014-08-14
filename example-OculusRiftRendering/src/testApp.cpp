@@ -103,6 +103,7 @@ void testApp::draw()
         ofSetColor(255);
 		ofPushMatrix();
 		glEnable(GL_DEPTH_TEST);
+
 		oculusRift.beginLeftEye();
 		drawScene();
 		oculusRift.endLeftEye();

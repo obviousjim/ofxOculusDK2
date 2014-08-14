@@ -271,7 +271,7 @@ bool ofxOculusDK2::setup(){
     
     // *** EZ BEGIN
     
-    ofSetWindowShape(renderTargetSize.w, renderTargetSize.h);
+    //ofSetWindowShape(renderTargetSize.w, renderTargetSize.h);
     cout << "RENDER TARGET SIZE: " << renderTargetSize.w << "x" << renderTargetSize.h << endl;
     
     float w = renderTargetSize.w;
@@ -863,7 +863,7 @@ void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
 	distortionShader.end();
 	
 //	renderTarget.getTextureReference().draw(0, ofGetHeight(), ofGetWidth(), -ofGetHeight());
-//	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
 	
 	/*
 	float w = .5;
