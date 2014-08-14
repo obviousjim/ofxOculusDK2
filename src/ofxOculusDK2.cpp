@@ -11,17 +11,10 @@
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
-    
     uniform vec2 EyeToSourceUVScale;
     uniform vec2 EyeToSourceUVOffset;
     uniform mat4 EyeRotationStart;
     uniform mat4 EyeRotationEnd;
-
-    attribute vec2 Position;
-    attribute vec4 Color;
-    attribute vec2 TexCoord0;
-    attribute vec2 TexCoord1;
-    attribute vec2 TexCoord2;
 
     varying vec4 oColor;
     varying vec2 oTexCoord0;
@@ -30,61 +23,52 @@ static const char* OculusWarpVert = GLSL(120,
 
     void main()
     {
-		gl_Position.x = Position.x;
-		gl_Position.y = Position.y;
+		gl_Position.x = gl_Vertex.x;
+		gl_Position.y = gl_Vertex.y;
 		gl_Position.z = 0.0;
 		gl_Position.w = 1.0;
 
-    // Vertex inputs are in TanEyeAngle space for the R,G,B channels (i.e. after chromatic aberration and distortion).
-    // These are now "real world" vectors in direction (x,y,1) relative to the eye of the HMD.
-		vec3 TanEyeAngleR = vec3 ( TexCoord0.x, TexCoord0.y, 1.0 );
-		vec3 TanEyeAngleG = vec3 ( TexCoord1.x, TexCoord1.y, 1.0 );
-		vec3 TanEyeAngleB = vec3 ( TexCoord2.x, TexCoord2.y, 1.0 );
+		// Vertex inputs are in TanEyeAngle space for the R,G,B channels (i.e. after chromatic aberration and distortion).
+		// These are now "real world" vectors in direction (x,y,1) relative to the eye of the HMD.
+		vec3 TanEyeAngleR = vec3 ( gl_Normal.x, gl_Normal.y, 1.0 );
+		vec3 TanEyeAngleG = vec3 ( gl_Color.r, gl_Color.g, 1.0 );
+		vec3 TanEyeAngleB = vec3 ( gl_Color.b, gl_Color.a, 1.0 );
 
-    // Accurate time warp lerp vs. faster
-#if 0
-    // Apply the two 3x3 timewarp rotations to these vectors.
-	"   vec3 TransformedRStart = (EyeRotationStart * vec4(TanEyeAngleR, 0)).xyz;\n"
-	"   vec3 TransformedGStart = (EyeRotationStart * vec4(TanEyeAngleG, 0)).xyz;\n"
-	"   vec3 TransformedBStart = (EyeRotationStart * vec4(TanEyeAngleB, 0)).xyz;\n"
-	"   vec3 TransformedREnd   = (EyeRotationEnd * vec4(TanEyeAngleR, 0)).xyz;\n"
-	"   vec3 TransformedGEnd   = (EyeRotationEnd * vec4(TanEyeAngleG, 0)).xyz;\n"
-	"   vec3 TransformedBEnd   = (EyeRotationEnd * vec4(TanEyeAngleB, 0)).xyz;\n"
-    // And blend between them.
-    "   vec3 TransformedR = mix ( TransformedRStart, TransformedREnd, Color.a );\n"
-    "   vec3 TransformedG = mix ( TransformedGStart, TransformedGEnd, Color.a );\n"
-    "   vec3 TransformedB = mix ( TransformedBStart, TransformedBEnd, Color.a );\n"
-#else
+		// Accurate time warp lerp vs. faster
+
 		mat3 EyeRotation;
-		EyeRotation[0] = mix ( EyeRotationStart[0], EyeRotationEnd[0], Color.a ).xyz;
-		EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], Color.a ).xyz;
-		EyeRotation[2] = mix ( EyeRotationStart[2], EyeRotationEnd[2], Color.a ).xyz;
+		EyeRotation[0] = mix ( EyeRotationStart[0], EyeRotationEnd[0], gl_Vertex.z ).xyz;
+		EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], gl_Vertex.z ).xyz;
+		EyeRotation[2] = mix ( EyeRotationStart[2], EyeRotationEnd[2], gl_Vertex.z ).xyz;
+
 		vec3 TransformedR   = EyeRotation * TanEyeAngleR;
 		vec3 TransformedG   = EyeRotation * TanEyeAngleG;
 		vec3 TransformedB   = EyeRotation * TanEyeAngleB;
-#endif
 
-    // Project them back onto the Z=1 plane of the rendered images.
-    float RecipZR = 1.0 / TransformedR.z;
-    float RecipZG = 1.0 / TransformedG.z;
-    float RecipZB = 1.0 / TransformedB.z;
-    vec2 FlattenedR = vec2 ( TransformedR.x * RecipZR, TransformedR.y * RecipZR );
-    vec2 FlattenedG = vec2 ( TransformedG.x * RecipZG, TransformedG.y * RecipZG );
-    vec2 FlattenedB = vec2 ( TransformedB.x * RecipZB, TransformedB.y * RecipZB );
+		// Project them back onto the Z=1 plane of the rendered images.
+		float RecipZR = 1.0 / TransformedR.z;
+		float RecipZG = 1.0 / TransformedG.z;
+		float RecipZB = 1.0 / TransformedB.z;
+		vec2 FlattenedR = vec2 ( TransformedR.x * RecipZR, TransformedR.y * RecipZR );
+		vec2 FlattenedG = vec2 ( TransformedG.x * RecipZG, TransformedG.y * RecipZG );
+		vec2 FlattenedB = vec2 ( TransformedB.x * RecipZB, TransformedB.y * RecipZB );
 
-    // These are now still in TanEyeAngle space.
-    // Scale them into the correct [0-1],[0-1] UV lookup space (depending on eye)
-    vec2 SrcCoordR = FlattenedR * EyeToSourceUVScale + EyeToSourceUVOffset;
-    vec2 SrcCoordG = FlattenedG * EyeToSourceUVScale + EyeToSourceUVOffset;
-    vec2 SrcCoordB = FlattenedB * EyeToSourceUVScale + EyeToSourceUVOffset;
-    oTexCoord0 = SrcCoordR;
-    oTexCoord0.y = 1.0-oTexCoord0.y;
-    oTexCoord1 = SrcCoordG;
-    oTexCoord1.y = 1.0-oTexCoord1.y;
-    oTexCoord2 = SrcCoordB;
-    oTexCoord2.y = 1.0-oTexCoord2.y;
-	oColor = vec4(Color.r, Color.r, Color.r, Color.r);              // Used for vignette fade.
-});
+		// These are now still in TanEyeAngle space.
+		// Scale them into the correct [0-1],[0-1] UV lookup space (depending on eye)
+		vec2 SrcCoordR = FlattenedR * EyeToSourceUVScale + EyeToSourceUVOffset;
+		vec2 SrcCoordG = FlattenedG * EyeToSourceUVScale + EyeToSourceUVOffset;
+		vec2 SrcCoordB = FlattenedB * EyeToSourceUVScale + EyeToSourceUVOffset;
+
+		oTexCoord0 = SrcCoordR;
+		oTexCoord0.y = 1.0-oTexCoord0.y;
+		oTexCoord1 = SrcCoordG;
+		oTexCoord1.y = 1.0-oTexCoord1.y;
+		oTexCoord2 = SrcCoordB;
+		oTexCoord2.y = 1.0-oTexCoord2.y;
+
+		oColor = vec4(gl_Normal.z, gl_Normal.z, gl_Normal.z, gl_Normal.z);
+	}
+);
                                
 static const char* OculusWarpFrag = GLSL(120,
     uniform sampler2D Texture;
@@ -100,7 +84,8 @@ static const char* OculusWarpFrag = GLSL(120,
        gl_FragColor.g = oColor.g * texture2D(Texture, oTexCoord1).g;
        gl_FragColor.b = oColor.b * texture2D(Texture, oTexCoord2).b;
        gl_FragColor.a = 1.0;
-    });
+    }
+);
 
 ofQuaternion toOf(const Quatf& q){
 	return ofQuaternion(q.x, q.y, q.z, q.w);
@@ -337,10 +322,11 @@ void ofxOculusDK2::initializeClientRenderer(){
 	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
 		// Allocate & generate distortion mesh vertices.
 		ovrDistortionMesh meshData;
-		int caps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
+//		int caps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
+		int caps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
 
 		ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, caps, &meshData);
-		ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], (ovrVector2f*) UVScaleOffset[eyeNum]);
+		ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], UVScaleOffset[eyeNum]);
 
 		// Now parse the vertex data and create a render ready vertex buffer from it
 //		DistortionVertex * pVBVerts = (DistortionVertex*)OVR_ALLOC(sizeof(DistortionVertex) * meshData.VertexCount );
@@ -622,10 +608,14 @@ ofRectangle ofxOculusDK2::getOculusViewport(){
 void ofxOculusDK2::reloadShader(){
 	//this allows you to hack on the shader if you'd like
 	if(ofFile("Shaders/HmdWarp.vert").exists() && ofFile("Shaders/HmdWarp.frag").exists()){
+		cout << "** SHADERS loading from file" << endl;
 		distortionShader.load("Shaders/HmdWarp");
 	}
 	//otherwise we load the hardcoded one
 	else{
+		cout << OculusWarpVert << endl<<endl<<endl;
+		cout << OculusWarpFrag << endl;
+
 		distortionShader.setupShaderFromSource(GL_VERTEX_SHADER, OculusWarpVert);
 		distortionShader.setupShaderFromSource(GL_FRAGMENT_SHADER, OculusWarpFrag);
 		distortionShader.linkProgram();
@@ -872,27 +862,27 @@ void ofxOculusDK2::draw(){
 
 	///JG START HERE 
 	// Prepare for distortion rendering. 
-	/*
-	ShaderFill distortionShaderFill(DistortionData.Shaders);
-	distortionShaderFill.SetTexture(0, pRendertargetTexture);
-	distortionShaderFill.SetInputLayout(DistortionData.VertexIL);
+	
+	distortionShader.begin();
+	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
+	//???
+//	distortionShaderFill.SetInputLayout(DistortionData.VertexIL);
 	for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++) {
 		// Setup shader constants
-		DistortionData.Shaders->SetUniform2f("EyeToSourceUVScale",
-		DistortionData.UVScaleOffset[eyeIndex][0].x, DistortionData.UVScaleOffset[eyeIndex][0].y);
-		DistortionData.Shaders->SetUniform2f("EyeToSourceUVOffset",
-		DistortionData.UVScaleOffset[eyeIndex][1].x, DistortionData.UVScaleOffset[eyeIndex][1].y);
+		distortionShader.setUniform2f("EyeToSourceUVScale", UVScaleOffset[eyeIndex][0].x, 
+															UVScaleOffset[eyeIndex][0].y);
+		distortionShader.setUniform2f("EyeToSourceUVOffset", UVScaleOffset[eyeIndex][1].x, 
+															 UVScaleOffset[eyeIndex][1].y);
 		ovrMatrix4f timeWarpMatrices[2];
-		ovrHmd_GetEyeTimewarpMatrices(hmd, (ovrEyeType) eyeIndex, headPose[eyeIndex],
-		timeWarpMatrices);
-		DistortionData.Shaders->SetUniform4x4f("EyeRotationStart", Matrix4f(timeWarpMatrices[0]));
-		DistortionData.Shaders->SetUniform4x4f("EyeRotationEnd", Matrix4f(timeWarpMatrices[1]));
+		ovrHmd_GetEyeTimewarpMatrices(hmd, (ovrEyeType) eyeIndex, headPose[eyeIndex], timeWarpMatrices);
+		distortionShader.setUniformMatrix4f("EyeRotationStart", toOf(timeWarpMatrices[0]) );
+		distortionShader.setUniformMatrix4f("EyeRotationEnd", toOf(timeWarpMatrices[1]) );
 		// Perform distortion
-		pRender->Render(&distortionShaderFill,
-		DistortionData.MeshVBs[eyeIndex], DistortionData.MeshIBs[eyeIndex]);
+//		pRender->Render(&distortionShaderFill,
+//		DistortionData.MeshVBs[eyeIndex], DistortionData.MeshIBs[eyeIndex]);
+		eyeMesh[eyeIndex].draw();
 	}
-	*/
-
+	
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
 
