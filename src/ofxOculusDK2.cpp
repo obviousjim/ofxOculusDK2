@@ -483,39 +483,35 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
-	
-	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 500.f, 100000.0f, true)) );
-//	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, false));
-//	Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()) );
+	//ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 500.f, 100000.0f, true)) );
+	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 500.f, 10000.0f, true)) );
+	//ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, false)) );
+	projectionMatrix.scale(-1,1,1);
 	ofLoadMatrix( projectionMatrix );
-	
+
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
-
 	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
 	Quatf orientation = Quatf(headPose[eye].Orientation);
-
-	Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()*0) );
-	ofLoadMatrix( ofMatrix4x4::getInverseOf( toOf(Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust) * view) ) );
-	//ofScale(1,-1,1);
-
-	//orientationMatrix = getOrientationMat();
-	//ofMatrix4x4 headRotation = orientationMatrix;
-//	if(baseCamera != NULL){
-//		//headRotation = headRotation * baseCamera->getGlobalTransformMatrix();
-//		baseCamera->begin();
-//		baseCamera->end();
-//	}
+	Matrix4f view = Matrix4f( orientation.Inverted() ) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()) );	
 	
-	// lock the camera when enabled...
-	//if (!lockView) {
-	//	ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
-	//}
+	//toOVR(baseCamera->getGlobalTransformMatrix())
 
-	
-//	ofMatrix4x4 viewAdjust;
-//	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
-//	ofMultMatrix(viewAdjust);
+	/*
+	if(baseCamera != NULL){
+		headRotation = headRotation * baseCamera->getGlobalTransformMatrix();
+		baseCamera->begin();
+		baseCamera->end();
+	}
+	*/
+
+	//ofLoadMatrix( ofMatrix4x4::getInverseOf( toOf(Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust) * view) ) );
+	ofLoadMatrix( toOf( view * Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust)  ) );
+
+//	ofScale(1,1,-1);
+	//ofLoadMatrix( toOf(view) );
+//	ofScale(1,-1,1);
+//	ofScale(.0001, .0001, .0001);
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
@@ -857,8 +853,17 @@ void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
                                   eyeParams.Distortion.Lens.ChromaticAberration[1],
                                   eyeParams.Distortion.Lens.ChromaticAberration[2] + 1.0f,
                                   eyeParams.Distortion.Lens.ChromaticAberration[3]);
+//
+//	setupShaderUniforms(OVR::Util::Render::StereoEye_Left);
+//	leftEyeMesh.draw();
+//	
+//	setupShaderUniforms(OVR::Util::Render::StereoEye_Right);
+//	rightEyeMesh.draw();
 
-    
+	distortionShader.end();
+	
+//	renderTarget.getTextureReference().draw(0, ofGetHeight(), ofGetWidth(), -ofGetHeight());
+	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
 
 	float w = .5;
 	float h = 1.0;
