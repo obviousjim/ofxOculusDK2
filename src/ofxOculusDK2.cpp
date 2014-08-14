@@ -25,7 +25,7 @@ static const char* OculusWarpVert = GLSL(120,
 
     varying vec4 oColor;
     varying vec2 oTexCoord0;
-    vvarying vec2 oTexCoord1;
+    varying vec2 oTexCoord1;
     varying vec2 oTexCoord2;
 
     void main()
