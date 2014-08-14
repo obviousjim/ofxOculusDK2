@@ -302,7 +302,6 @@ void ofxOculusDK2::initializeClientRenderer(){
 	Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
 	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
 
-	Sizei renderTargetSize;
 	renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
 	renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
 
@@ -559,7 +558,7 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		backgroundTarget.getTextureReference().draw(toOf(eyeRenderViewport[eye]));
 		glPopAttrib();
 	}
-	
+    
 	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
 
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
@@ -885,22 +884,50 @@ void ofxOculusDK2::draw(){
 	
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
+    
+    // EZ
+    //    StereoEyeParams CalculateStereoEyeParams ( HmdRenderInfo const &hmd,
+    //                                              StereoEye eyeType,
+    //                                              Sizei const &actualRendertargetSurfaceSize,
+    //                                              bool bRendertargetSharedByBothEyes,
+    //                                              bool bRightHanded = true,
+    //                                              float zNear = 0.01f, float zFar = 10000.0f,
+    //                                              Sizei const *pOverrideRenderedPixelSize = NULL,
+    //                                              FovPort const *pOverrideFovport = NULL,
+    //                                              float zoomFactor = 1.0f );
+    HMDState* p = (HMDState *)hmd;
+    StereoEyeParams eyeParams = CalculateStereoEyeParams(p->RenderState.RenderInfo, StereoEye_Left, renderTargetSize, true);
 
 	distortionShader.begin();
-//	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
-//	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
+	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
+	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
 //	const OVR::Util::Render::DistortionConfig& distortionConfig = stereo.GetDistortionConfig();
 //    distortionShader.setUniform4f("HmdWarpParam",
 //								  distortionConfig.K[0],
 //								  distortionConfig.K[1],
 //								  distortionConfig.K[2],
 //								  distortionConfig.K[3]);
+    // EZ
+    // Note that the shader currently doesn't use Distortion.K[0], it hardwires it to 1.0.
+    distortionShader.setUniform4f("HmdWarpParam",
+                                  1.0f,
+                                  eyeParams.Distortion.Lens.K[1],
+                                  eyeParams.Distortion.Lens.K[2],
+                                  eyeParams.Distortion.Lens.K[3]);
 //    distortionShader.setUniform4f("ChromAbParam",
 //                                  distortionConfig.ChromaticAberration[0],
 //                                  distortionConfig.ChromaticAberration[1],
 //                                  distortionConfig.ChromaticAberration[2],
 //                                  distortionConfig.ChromaticAberration[3]);
-//	
+    // EZ
+    // These are stored as deltas off the "main" distortion coefficients, but
+    // in the shader we use them as absolute values.
+    distortionShader.setUniform4f("ChromAbParam",
+                                  eyeParams.Distortion.Lens.ChromaticAberration[0] + 1.0f,
+                                  eyeParams.Distortion.Lens.ChromaticAberration[1],
+                                  eyeParams.Distortion.Lens.ChromaticAberration[2] + 1.0f,
+                                  eyeParams.Distortion.Lens.ChromaticAberration[3]);
+//
 //	setupShaderUniforms(OVR::Util::Render::StereoEye_Left);
 //	leftEyeMesh.draw();
 //	
