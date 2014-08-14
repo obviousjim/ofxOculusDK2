@@ -855,16 +855,17 @@ void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
                                   eyeParams.Distortion.Lens.ChromaticAberration[3]);
 //
 //	setupShaderUniforms(OVR::Util::Render::StereoEye_Left);
-//	leftEyeMesh.draw();
-//	
+	leftEyeMesh.draw();
+	
 //	setupShaderUniforms(OVR::Util::Render::StereoEye_Right);
-//	rightEyeMesh.draw();
+	rightEyeMesh.draw();
 
 	distortionShader.end();
 	
 //	renderTarget.getTextureReference().draw(0, ofGetHeight(), ofGetWidth(), -ofGetHeight());
-	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
-
+//	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+	
+	/*
 	float w = .5;
 	float h = 1.0;
 	float y = 0;
@@ -905,6 +906,7 @@ void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
 	
     distortionShader.setUniform2f("Scale", scale.x,scale.y);
     distortionShader.setUniform2f("ScaleIn",scaleIn.x,scaleIn.y);
+	*/
 
 //	cout << "UNIFORMS " << endl;
 //	cout << "	scale " << scale << endl;
