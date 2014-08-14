@@ -809,21 +809,21 @@ void ofxOculusDK2::draw(){
     
     // *** EZ BEGIN
     
-//	distortionShader.begin();
-//	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
-//	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
-//
-//	setupShaderUniforms(ovrEye_Left);
-//	leftEyeMesh.draw();
-//
-//	setupShaderUniforms(ovrEye_Right);
-//	rightEyeMesh.draw();
-//
-//	distortionShader.end();
+	distortionShader.begin();
+	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
+	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
+
+	setupShaderUniforms(ovrEye_Left);
+	leftEyeMesh.draw();
+
+	setupShaderUniforms(ovrEye_Right);
+	rightEyeMesh.draw();
+
+	distortionShader.end();
     
     // *** EZ END
 	
-	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+//	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
 
 	bUseOverlay = false;
 	bUseBackground = false;
