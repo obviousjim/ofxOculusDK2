@@ -596,8 +596,10 @@ void ofxOculusDK2::beginLeftEye(){
 
 	renderTarget.begin();
 	ofClear(0,0,0);
+	
 	ofPushView();
 	ofPushMatrix();
+
 	setupEyeParams(ovrEye_Left);
 }
 
@@ -800,11 +802,15 @@ void ofxOculusDK2::draw(){
 	distortionShader.end();
 	*/
 
+
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
     
+	/*
     // *** EZ BEGIN
     
+	ofDisableDepthTest();
+
 	distortionShader.begin();
 	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
 	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
@@ -818,8 +824,11 @@ void ofxOculusDK2::draw(){
 	distortionShader.end();
     
     // *** EZ END
-	
-//	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+	*/
+
+	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+
+	ofEnableDepthTest();
 
 	bUseOverlay = false;
 	bUseBackground = false;
@@ -855,15 +864,14 @@ void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
                                   eyeParams.Distortion.Lens.ChromaticAberration[3]);
 //
 //	setupShaderUniforms(OVR::Util::Render::StereoEye_Left);
-	leftEyeMesh.draw();
+//	leftEyeMesh.draw();
 	
 //	setupShaderUniforms(OVR::Util::Render::StereoEye_Right);
-	rightEyeMesh.draw();
+//	rightEyeMesh.draw();
 
-	distortionShader.end();
+//	distortionShader.end();
 	
 //	renderTarget.getTextureReference().draw(0, ofGetHeight(), ofGetWidth(), -ofGetHeight());
-	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
 	
 	/*
 	float w = .5;
