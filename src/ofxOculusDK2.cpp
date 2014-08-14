@@ -853,18 +853,7 @@ void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
                                   eyeParams.Distortion.Lens.ChromaticAberration[1],
                                   eyeParams.Distortion.Lens.ChromaticAberration[2] + 1.0f,
                                   eyeParams.Distortion.Lens.ChromaticAberration[3]);
-//
-//	setupShaderUniforms(OVR::Util::Render::StereoEye_Left);
-//	leftEyeMesh.draw();
-//	
-//	setupShaderUniforms(OVR::Util::Render::StereoEye_Right);
-//	rightEyeMesh.draw();
-
-	distortionShader.end();
-	
-//	renderTarget.getTextureReference().draw(0, ofGetHeight(), ofGetWidth(), -ofGetHeight());
-	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
-
+    
 	float w = .5;
 	float h = 1.0;
 	float y = 0;
