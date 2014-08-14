@@ -114,6 +114,14 @@ ofVec3f toOf(const ovrVector3f& v){
 	return ofVec3f(v.x,v.y,v.z);
 }
 
+ovrVector3f toOVR(const ofVec3f& v ){
+	ovrVector3f ov;
+	ov.x = v.x;
+	ov.y = v.y;
+	ov.z = v.z;
+	return ov;
+}
+
 ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
     
@@ -379,151 +387,6 @@ void ofxOculusDK2::reset(){
 	}
 }
 
-/*
-void ofxOculusDK2::calculateHmdValues()
-{
-    // Initialize eye rendering information for ovrHmd_Configure.
-    // The viewport sizes are re-computed in case RenderTargetSize changed due to HW limitations.
-    ovrFovPort eyeFov[2];
-    eyeFov[0] = hmd->DefaultEyeFov[0];
-    eyeFov[1] = hmd->DefaultEyeFov[1];
-    
-    // Clamp Fov based on our dynamically adjustable FovSideTanMax.
-    // Most apps should use the default, but reducing Fov does reduce rendering cost.
-    static const float fovSideTanMax = 1.0f;
-    eyeFov[0] = FovPort::Min(eyeFov[0], FovPort(fovSideTanMax));
-    eyeFov[1] = FovPort::Min(eyeFov[1], FovPort(fovSideTanMax));
-    
-    // Configure Stereo settings. Default pixel density is 1.0f.
-    static const float desiredPixelDensity = 1.0f;
-    Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left,  eyeFov[0], desiredPixelDensity);
-    Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], desiredPixelDensity);
-        
-//    if (RendertargetIsSharedByBothEyes) {
-    if (true) {
-            Sizei rtSize(recommenedTex0Size.w + recommenedTex1Size.w,
-                         Alg::Max(recommenedTex0Size.h, recommenedTex1Size.h));
-            
-            // Use returned size as the actual RT size may be different due to HW limits.
-//            rtSize = EnsureRendertargetAtLeastThisBig(Rendertarget_BothEyes, rtSize);
-        
-            // Don't draw more then recommended size; this also ensures that resolution reported
-            // in the overlay HUD size is updated correctly for FOV/pixel density change.
-            eyeRenderSize[0] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex0Size);
-            eyeRenderSize[1] = Sizei::Min(Sizei(rtSize.w/2, rtSize.h), recommenedTex1Size);
-            
-            // Store texture pointers that will be passed for rendering.
-            // Same texture is used, but with different viewports.
-//            eyeTexture[0]                       = renderTarget.getTextureReference().getTextureData().textureID;
-            eyeTexture[0].Header.TextureSize    = rtSize;
-            eyeTexture[0].Header.RenderViewport = Recti(Vector2i(0), eyeRenderSize[0]);
-//            eyeTexture[1]                       = RenderTargets[Rendertarget_BothEyes].Tex;
-            eyeTexture[1].Header.TextureSize    = rtSize;
-            eyeTexture[1].Header.RenderViewport = Recti(Vector2i((rtSize.w+1)/2, 0), eyeRenderSize[1]);
-    }
-//    else {
-//        Sizei tex0Size = EnsureRendertargetAtLeastThisBig(Rendertarget_Left,  recommenedTex0Size);
-//        Sizei tex1Size = EnsureRendertargetAtLeastThisBig(Rendertarget_Right, recommenedTex1Size);
-//        
-//        EyeRenderSize[0] = Sizei::Min(tex0Size, recommenedTex0Size);
-//        EyeRenderSize[1] = Sizei::Min(tex1Size, recommenedTex1Size);
-//        
-//        // Store texture pointers and viewports that will be passed for rendering.
-//        EyeTexture[0]                       = RenderTargets[Rendertarget_Left].Tex;
-//        EyeTexture[0].Header.TextureSize    = tex0Size;
-//        EyeTexture[0].Header.RenderViewport = Recti(EyeRenderSize[0]);
-//        EyeTexture[1]                       = RenderTargets[Rendertarget_Right].Tex;
-//        EyeTexture[1].Header.TextureSize    = tex1Size;
-//        EyeTexture[1].Header.RenderViewport = Recti(EyeRenderSize[1]);
-//    }
-    
-    // Hmd caps.
-//    unsigned hmdCaps = (VsyncEnabled ? 0 : ovrHmdCap_NoVSync);
-    unsigned hmdCaps = 0;  // EZ: Assume vsync is on.
-    if (bLowPersistence) {
-        hmdCaps |= ovrHmdCap_LowPersistence;
-    }
-    
-    // ovrHmdCap_DynamicPrediction - enables internal latency feedback
-    if (bDynamicPrediction) {
-        hmdCaps |= ovrHmdCap_DynamicPrediction;
-    }
-    
-    // ovrHmdCap_DisplayOff - turns off the display
-//    if (DisplaySleep)
-//        hmdCaps |= ovrHmdCap_DisplayOff;
-    
-//    if (!MirrorToWindow)
-//        hmdCaps |= ovrHmdCap_NoMirrorToWindow;
-    
-    // If using our driver, display status overlay messages.
-//    if (!(Hmd->HmdCaps & ovrHmdCap_ExtendDesktop) && (NotificationTimeout != 0.0f))
-//    {
-//        GetPlatformCore()->SetNotificationOverlay(0, 28, 8,
-//                                                  "Rendering to the Hmd - Please put on your Rift");
-//        GetPlatformCore()->SetNotificationOverlay(1, 24, -8,
-//                                                  MirrorToWindow ? "'M' - Mirror to Window [On]" : "'M' - Mirror to Window [Off]");
-//    }
-    
-    // EZ: Let's render manually for now...
-//    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
-//    
-//    
-//	ovrRenderAPIConfig config         = pRender->Get_ovrRenderAPIConfig();
-//    unsigned           distortionCaps = ovrDistortionCap_Chromatic |
-//    ovrDistortionCap_Vignette;
-//    if (SupportsSrgb)
-//        distortionCaps |= ovrDistortionCap_SRGB;
-//	if(PixelLuminanceOverdrive)
-//		distortionCaps |= ovrDistortionCap_Overdrive;
-//    if (TimewarpEnabled)
-//        distortionCaps |= ovrDistortionCap_TimeWarp;
-//    if(TimewarpNoJitEnabled)
-//        distortionCaps |= ovrDistortionCap_ProfileNoTimewarpSpinWaits;
-//    
-//    if (!ovrHmd_ConfigureRendering( Hmd, &config, distortionCaps,
-//                                   eyeFov, EyeRenderDesc ))
-//    {
-//        // Fail exit? TBD
-//        return;
-//    }
-    
-//    if (ForceZeroIpd)
-//    {
-//        // Remove IPD adjust
-//        EyeRenderDesc[0].ViewAdjust = Vector3f(0);
-//        EyeRenderDesc[1].ViewAdjust = Vector3f(0);
-//    }
-    
-    unsigned sensorCaps = ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection;
-    if (bPositionTrackingEnabled) {
-        sensorCaps |= ovrTrackingCap_Position;
-    }
-    
-    if (startTrackingCaps != sensorCaps) {
-        ovrHmd_ConfigureTracking(hmd, sensorCaps, 0);
-        startTrackingCaps = sensorCaps;
-    }
-    
-    // EZ: eyeRenderDesc is never set...
-    
-    // Calculate projections
-    eyeProjection[0] = ovrMatrix4f_Projection(eyeRenderDesc[0].Fov,  0.01f, 10000.0f, true);
-    eyeProjection[1] = ovrMatrix4f_Projection(eyeRenderDesc[1].Fov,  0.01f, 10000.0f, true);
-    
-    float orthoDistance = 0.8f; // 2D is 0.8 meter from camera
-    Vector2f orthoScale0   = Vector2f(1.0f) / Vector2f(eyeRenderDesc[0].PixelsPerTanAngleAtCenter);
-    Vector2f orthoScale1   = Vector2f(1.0f) / Vector2f(eyeRenderDesc[1].PixelsPerTanAngleAtCenter);
-    
-    orthoProjection[0] = ovrMatrix4f_OrthoSubProjection(eyeProjection[0], orthoScale0, orthoDistance,
-                                                        eyeRenderDesc[0].ViewAdjust.x);
-    orthoProjection[1] = ovrMatrix4f_OrthoSubProjection(eyeProjection[1], orthoScale1, orthoDistance,
-                                                        eyeRenderDesc[1].ViewAdjust.x);
-    
-    // all done
-    bHmdSettingsChanged = false;
-}
-*/
 
 ofQuaternion ofxOculusDK2::getOrientationQuat(){
 //	return toOf(pFusionResult->GetPredictedOrientation());
@@ -559,12 +422,19 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		glPopAttrib();
 	}
     
+	/*
+	///////////////////OLD WAY
 	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
+
+	ofViewport(toOf(eyeRenderViewport[eye]));
 
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
 	
-	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false) ) );
+	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, true) ) );
+	//ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false) );
+	//ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, false) ) ;
+	//projectionMatrix.scale(-1,1,1);
 	ofLoadMatrix( projectionMatrix );
 	
 	//what to do about this 
@@ -578,26 +448,64 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	ofLoadIdentityMatrix();
 		
 	//orientationMatrix = ofMatrix4x4::getTransposedOf( getOrientationMat() );
+	//orientationMatrix = getOrientationMat().getInverse();
 	orientationMatrix = getOrientationMat();
 	
 	ofMatrix4x4 headRotation = orientationMatrix;
 	if(baseCamera != NULL){
-		headRotation = headRotation * baseCamera->getGlobalTransformMatrix();
+		//headRotation = headRotation * baseCamera->getGlobalTransformMatrix();
 		baseCamera->begin();
 		baseCamera->end();
 	}
 	
 	// lock the camera when enabled...
 	if (!lockView) {
-		ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
-//		ofLoadMatrix( headRotation );
+//		ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
+		ofLoadMatrix( headRotation );
 	}
 	
-	ofViewport(toOf(eyeRenderViewport[eye]));
 	ofMatrix4x4 viewAdjust;
 	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
 	ofMultMatrix(viewAdjust);
+	*/
+
+	ofViewport(toOf(eyeRenderViewport[eye]));
+
+	ofSetMatrixMode(OF_MATRIX_PROJECTION);
+	ofLoadIdentityMatrix();
 	
+	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 500.f, 100000.0f, true)) );
+//	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, false));
+//	Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()) );
+	ofLoadMatrix( projectionMatrix );
+	
+	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
+	ofLoadIdentityMatrix();
+
+	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
+	Quatf orientation = Quatf(headPose[eye].Orientation);
+
+	Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()*0) );
+	ofLoadMatrix( ofMatrix4x4::getInverseOf( toOf(Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust) * view) ) );
+	//ofScale(1,-1,1);
+
+	//orientationMatrix = getOrientationMat();
+	//ofMatrix4x4 headRotation = orientationMatrix;
+//	if(baseCamera != NULL){
+//		//headRotation = headRotation * baseCamera->getGlobalTransformMatrix();
+//		baseCamera->begin();
+//		baseCamera->end();
+//	}
+	
+	// lock the camera when enabled...
+	//if (!lockView) {
+	//	ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
+	//}
+
+	
+//	ofMatrix4x4 viewAdjust;
+//	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+//	ofMultMatrix(viewAdjust);
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
