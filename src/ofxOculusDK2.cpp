@@ -114,14 +114,6 @@ ofVec3f toOf(const ovrVector3f& v){
 	return ofVec3f(v.x,v.y,v.z);
 }
 
-ovrVector3f toOVR(const ofVec3f& v){
-	ovrVector3f ov;
-	ov.x = v.x;
-	ov.y = v.y;
-	ov.z = v.z;
-	return ov;
-}
-
 ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
     
@@ -557,7 +549,7 @@ ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
 
 void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	
-//    OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams( eye );
+//  OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams( eye );
 //	OVR::Util::Render::Viewport VP = eyeRenderParams.VP;
 
 	if(bUseBackground){
@@ -570,20 +562,23 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	
 	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
 
-	Quatf orientation = Quatf(headPose[eye].Orientation);
-
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
 	
-	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false)) );
-//	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false));
-	Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()) );
-
+	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false) ) );
 	ofLoadMatrix( projectionMatrix );
 	
+	//what to do about this 
+	//******************
+	//Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-WorldEyePosition);
+	//and this view adjust
+	//Matrix4f::Translation(EyeRenderDesc[eye].ViewAdjust) * view);
+	//******************
+
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
 		
+	//orientationMatrix = ofMatrix4x4::getTransposedOf( getOrientationMat() );
 	orientationMatrix = getOrientationMat();
 	
 	ofMatrix4x4 headRotation = orientationMatrix;
@@ -594,16 +589,15 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	}
 	
 	// lock the camera when enabled...
-	//if (!lockView) {
-	//	ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
-	//}
-
-	ofLoadMatrix( toOf(Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust) * view) );
+	if (!lockView) {
+		ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
+//		ofLoadMatrix( headRotation );
+	}
 	
 	ofViewport(toOf(eyeRenderViewport[eye]));
-//	ofMatrix4x4 viewAdjust;
-//	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
-//	ofMultMatrix(viewAdjust);
+	ofMatrix4x4 viewAdjust;
+	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+	ofMultMatrix(viewAdjust);
 	
 }
 
@@ -710,6 +704,7 @@ void ofxOculusDK2::beginRightEye(){
 	
 	ofPushView();
 	ofPushMatrix();
+	
 	setupEyeParams(ovrEye_Right);
 }
 
