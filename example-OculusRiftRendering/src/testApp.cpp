@@ -76,44 +76,53 @@ void testApp::draw()
 	
 	if(oculusRift.isSetup()){
 		
-		if(showOverlay){
-			
-			oculusRift.beginOverlay(-230, 320,240);
-			ofRectangle overlayRect = oculusRift.getOverlayRectangle();
-			
-			ofPushStyle();
-			ofEnableAlphaBlending();
-			ofFill();
-			ofSetColor(255, 40, 10, 200);
-			
-			ofRect(overlayRect);
-			
-			ofSetColor(255,255);
-			ofFill();
-			ofDrawBitmapString("ofxOculusRift by\nAndreas Muller\nJames George\nJason Walters\nElie Zananiri\nFPS:"+ofToString(ofGetFrameRate())+"\nPredictive Tracking " + (oculusRift.getUsePredictiveOrientation() ? "YES" : "NO"), 40, 40);
+        if (ofGetMousePressed()) {
+            cam.setOrientation(oculusRift.getOrientationQuat());
             
-            ofSetColor(0, 255, 0);
-            ofNoFill();
-            ofCircle(overlayRect.getCenter(), 20);
-			
-			ofPopStyle();
-			oculusRift.endOverlay();
-		}
-        
-        ofSetColor(255);
+            cam.begin();
+            drawScene();
+            cam.end();
+        }
+        else {
+            if(showOverlay){
+                
+                oculusRift.beginOverlay(-230, 320,240);
+                ofRectangle overlayRect = oculusRift.getOverlayRectangle();
+                
+                ofPushStyle();
+                ofEnableAlphaBlending();
+                ofFill();
+                ofSetColor(255, 40, 10, 200);
+                
+                ofRect(overlayRect);
+                
+                ofSetColor(255,255);
+                ofFill();
+                ofDrawBitmapString("ofxOculusRift by\nAndreas Muller\nJames George\nJason Walters\nElie Zananiri\nFPS:"+ofToString(ofGetFrameRate())+"\nPredictive Tracking " + (oculusRift.getUsePredictiveOrientation() ? "YES" : "NO"), 40, 40);
+                
+                ofSetColor(0, 255, 0);
+                ofNoFill();
+                ofCircle(overlayRect.getCenter(), 20);
+                
+                ofPopStyle();
+                oculusRift.endOverlay();
+            }
+            
+            ofSetColor(255);
 
-		glEnable(GL_DEPTH_TEST);
-		oculusRift.beginLeftEye();
-		drawScene();
-		oculusRift.endLeftEye();
-		
-		oculusRift.beginRightEye();
-		drawScene();
-		oculusRift.endRightEye();
-		
-		oculusRift.draw();
-		
-		glDisable(GL_DEPTH_TEST);
+            glEnable(GL_DEPTH_TEST);
+            oculusRift.beginLeftEye();
+            drawScene();
+            oculusRift.endLeftEye();
+            
+            oculusRift.beginRightEye();
+            drawScene();
+            oculusRift.endRightEye();
+            
+            oculusRift.draw();
+            
+            glDisable(GL_DEPTH_TEST);
+        }
     }
 	else{
 		cam.begin();
