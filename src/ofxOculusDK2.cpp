@@ -114,6 +114,14 @@ ofVec3f toOf(const ovrVector3f& v){
 	return ofVec3f(v.x,v.y,v.z);
 }
 
+ovrVector3f toOVR(const ofVec3f& v){
+	ovrVector3f ov;
+	ov.x = v.x;
+	ov.y = v.y;
+	ov.z = v.z;
+	return ov;
+}
+
 ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
     
@@ -561,19 +569,17 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
     
 	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
 
+	Quatf orientation = Quatf(headPose[eye].Orientation);
+
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
 	
-	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true));
+	ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false)) );
+//	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false));
+	Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()) );
+
 	ofLoadMatrix( projectionMatrix );
 	
-	//what to do about this 
-	//******************
-	//Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-WorldEyePosition);
-	//and this view adjust
-	//Matrix4f::Translation(EyeRenderDesc[eye].ViewAdjust) * view);
-	//******************
-
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
 		
@@ -587,14 +593,16 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	}
 	
 	// lock the camera when enabled...
-	if (!lockView) {
-		ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
-	}
+	//if (!lockView) {
+	//	ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
+	//}
+
+	ofLoadMatrix( toOf(Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust) * view) );
 	
 	ofViewport(toOf(eyeRenderViewport[eye]));
-	ofMatrix4x4 viewAdjust;
-	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
-	ofMultMatrix(viewAdjust);
+//	ofMatrix4x4 viewAdjust;
+//	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+//	ofMultMatrix(viewAdjust);
 	
 }
 
@@ -701,7 +709,6 @@ void ofxOculusDK2::beginRightEye(){
 	
 	ofPushView();
 	ofPushMatrix();
-	
 	setupEyeParams(ovrEye_Right);
 }
 
@@ -861,7 +868,7 @@ void ofxOculusDK2::draw(){
 
 	///JG START HERE 
 	// Prepare for distortion rendering. 
-	
+	/*
 	distortionShader.begin();
 	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
 	//???
@@ -881,7 +888,12 @@ void ofxOculusDK2::draw(){
 //		DistortionData.MeshVBs[eyeIndex], DistortionData.MeshIBs[eyeIndex]);
 		eyeMesh[eyeIndex].draw();
 	}
-	
+	distortionShader.end();
+	*/
+
+	// JG Test Output
+//	renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
+
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
     
