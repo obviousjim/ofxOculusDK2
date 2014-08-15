@@ -12,21 +12,21 @@
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
-    uniform vec2 EyeToSourceUVScale;
-    uniform vec2 EyeToSourceUVOffset;
-    uniform mat4 EyeRotationStart;
-    uniform mat4 EyeRotationEnd;
+	uniform vec2 EyeToSourceUVScale;
+	uniform vec2 EyeToSourceUVOffset;
+	uniform mat4 EyeRotationStart;
+	uniform mat4 EyeRotationEnd;
 
-    varying vec4 oColor;
-    varying vec2 oTexCoord0;
-    varying vec2 oTexCoord1;
-    varying vec2 oTexCoord2;
+	varying vec4 oColor;
+	varying vec2 oTexCoord0;
+	varying vec2 oTexCoord1;
+	varying vec2 oTexCoord2;
 
-    void main()
-    {
+	void main()
+	{
 		gl_Position.x = gl_Vertex.x;
 		gl_Position.y = gl_Vertex.y;
-		gl_Position.z = 0.0;
+		gl_Position.z = .0;
 		gl_Position.w = 1.0;
 
 		// Vertex inputs are in TanEyeAngle space for the R,G,B channels (i.e. after chromatic aberration and distortion).
@@ -35,16 +35,14 @@ static const char* OculusWarpVert = GLSL(120,
 		vec3 TanEyeAngleG = vec3 ( gl_Color.r, gl_Color.g, 1.0 );
 		vec3 TanEyeAngleB = vec3 ( gl_Color.b, gl_Color.a, 1.0 );
 
-		// Accurate time warp lerp vs. faster
-
 		mat3 EyeRotation;
 		EyeRotation[0] = mix ( EyeRotationStart[0], EyeRotationEnd[0], gl_Vertex.z ).xyz;
 		EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], gl_Vertex.z ).xyz;
 		EyeRotation[2] = mix ( EyeRotationStart[2], EyeRotationEnd[2], gl_Vertex.z ).xyz;
 
-		vec3 TransformedR   = EyeRotation * TanEyeAngleR;
-		vec3 TransformedG   = EyeRotation * TanEyeAngleG;
-		vec3 TransformedB   = EyeRotation * TanEyeAngleB;
+		vec3 TransformedR = EyeRotation * TanEyeAngleR;
+		vec3 TransformedG = EyeRotation * TanEyeAngleG;
+		vec3 TransformedB = EyeRotation * TanEyeAngleB;
 
 		// Project them back onto the Z=1 plane of the rendered images.
 		float RecipZR = 1.0 / TransformedR.z;
@@ -72,20 +70,21 @@ static const char* OculusWarpVert = GLSL(120,
 );
                                
 static const char* OculusWarpFrag = GLSL(120,
-    uniform sampler2D Texture;
+	uniform sampler2DRect Texture;
+	uniform vec2 TextureScale;
+
+	varying vec4 oColor;
+	varying vec2 oTexCoord0;
+	varying vec2 oTexCoord1;
+	varying vec2 oTexCoord2;
     
-    varying vec4 oColor;
-    varying vec2 oTexCoord0;
-    varying vec2 oTexCoord1;
-    varying vec2 oTexCoord2;
-    
-    void main()
-    {
-       gl_FragColor.r = oColor.r * texture2D(Texture, oTexCoord0).r;
-       gl_FragColor.g = oColor.g * texture2D(Texture, oTexCoord1).g;
-       gl_FragColor.b = oColor.b * texture2D(Texture, oTexCoord2).b;
-       gl_FragColor.a = 1.0;
-    }
+	void main()
+	{
+	  gl_FragColor.r = oColor.r * texture2DRect(Texture, oTexCoord0 * TextureScale).r;
+	  gl_FragColor.g = oColor.g * texture2DRect(Texture, oTexCoord1 * TextureScale).g;
+	  gl_FragColor.b = oColor.b * texture2DRect(Texture, oTexCoord2 * TextureScale).b;
+	  gl_FragColor.a = 1.0;
+	}
 );
 
 ofQuaternion toOf(const Quatf& q){
@@ -223,7 +222,13 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	render_settings.width = renderTargetSize.w;
 	render_settings.height = renderTargetSize.h;
 	renderTarget.allocate(render_settings);
-	
+	//renderTarget.allocate(renderTargetSize.w,renderTargetSize.h, GL_RGB, 4);
+    backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
+
+	backgroundTarget.begin();
+    ofClear(0.0, 0.0, 0.0);
+	backgroundTarget.end();
+
 	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
 	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
 
@@ -323,7 +328,7 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	if(bUseBackground){
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
 		glDisable(GL_LIGHTING);
-		glDisable(GL_DEPTH_TEST);
+		ofDisableDepthTest();
 		backgroundTarget.getTextureReference().draw(toOf(eyeRenderViewport[eye]));
 		glPopAttrib();
 	}
