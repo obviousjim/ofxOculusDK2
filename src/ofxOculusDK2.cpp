@@ -125,7 +125,8 @@ ovrVector3f toOVR(const ofVec3f& v ){
 
 ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
-    
+    insideFrame = false;
+
     bUsingDebugHmd = false;
     startTrackingCaps = 0;
     
@@ -318,8 +319,6 @@ ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
 
 void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	
-//  OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams( eye );
-//	OVR::Util::Render::Viewport VP = eyeRenderParams.VP;
 
 	if(bUseBackground){
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -431,6 +430,7 @@ void ofxOculusDK2::reloadShader(){
 
 void ofxOculusDK2::beginBackground(){
 	bUseBackground = true;
+	insideFrame = true;
     backgroundTarget.begin();
     ofClear(0.0, 0.0, 0.0);
     ofPushView();
@@ -484,6 +484,7 @@ void ofxOculusDK2::beginLeftEye(){
 	if(!bSetup) return;
 	
 	frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
+	insideFrame = true;
 
 	renderTarget.begin();
 	ofClear(0,0,0);
@@ -670,6 +671,8 @@ void ofxOculusDK2::draw(){
 	
 	if(!bSetup) return;
 	
+	if(!insideFrame) return;
+
 	ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
 
 	///JG START HERE 
@@ -705,6 +708,7 @@ void ofxOculusDK2::draw(){
 
 	bUseOverlay = false;
 	bUseBackground = false;
+	insideFrame = false;
 }
 
 void ofxOculusDK2::setUsePredictedOrientation(bool usePredicted){
@@ -716,7 +720,7 @@ bool ofxOculusDK2::getUsePredictiveOrientation(){
 
 bool ofxOculusDK2::isHD(){
 	if(bSetup){
-		return hmd->Type == ovrHmd_DK2;
+		return hmd->Type == ovrHmd_DK2 || hmd->Type == ovrHmd_DKHD;
 	}
 	return false;
 }

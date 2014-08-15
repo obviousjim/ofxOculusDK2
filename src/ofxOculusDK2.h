@@ -123,7 +123,7 @@ class ofxOculusDK2
 
   private:
 	bool bSetup;
-    
+    bool insideFrame;
     bool bUsingDebugHmd;
     unsigned startTrackingCaps;
     
