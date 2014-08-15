@@ -11,8 +11,8 @@ varying vec2 oTexCoord2;
     
 void main()
 {
-  gl_FragColor.r = oColor.r * texture2DRect(Texture, oTexCoord0*TextureScale).r;
-  gl_FragColor.g = oColor.g * texture2DRect(Texture, oTexCoord1*TextureScale).g;
-  gl_FragColor.b = oColor.b * texture2DRect(Texture, oTexCoord2*TextureScale).b;
+  gl_FragColor.r = oColor.r * texture2DRect(Texture, oTexCoord0 * TextureScale).r;
+  gl_FragColor.g = oColor.g * texture2DRect(Texture, oTexCoord1 * TextureScale).g;
+  gl_FragColor.b = oColor.b * texture2DRect(Texture, oTexCoord2 * TextureScale).b;
   gl_FragColor.a = 1.0;
 }

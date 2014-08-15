@@ -172,34 +172,7 @@ bool ofxOculusDK2::setup(){
 		ofLogError("ofxOculusDK2::setup") << "Already set up";
 		return false;
 	}
-	
-//	System::Init();
-//    
-//  pFusionResult = new SensorFusion();
-//	pManager = *DeviceManager::Create();
-//	pHMD = *pManager->EnumerateDevices<HMDDevice>().CreateDevice();
-//    
-//	if (pHMD == NULL){
-//		ofLogError("ofxOculusRift::setup") << "HMD not found";
-//		return false;
-//	}
-//	
-//	if(!pHMD->GetDeviceInfo(&hmdInfo)){
-//		ofLogError("ofxOculusRift::setup") << "HMD Info not loaded";
-//		return false;
-//	}
-//	
-//	pSensor = *pHMD->GetSensor();
-//	if (pSensor == NULL){
-//		ofLogError("ofxOculusRift::setup") << "No sensor returned";
-//		return false;
-//	}
-//	ovr_Initialize();
-//	if(!pFusionResult->AttachToSensor(pSensor)){
-//		ofLogError("ofxOculusRift::setup") << "Sensor Fusion failed";
-//		return false;
-//	}
-    
+
     // Oculus HMD & Sensor Initialization
     ovr_Initialize();
     
@@ -233,91 +206,24 @@ bool ofxOculusDK2::setup(){
 	// Start the sensor which provides the Rift’s pose and motion.
 	ovrHmd_ConfigureTracking(hmd, 
 		ovrTrackingCap_Orientation | 
-		ovrTrackingCap_MagYawCorrection | 
+		//ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
+	
+
 	// Query the HMD for the current tracking state.
 
 	initializeClientRenderer();
 
-    // Setup System Window & Rendering
-    
-//	stereo.SetFullViewport(OVR::Util::Render::Viewport(0,0, hmdInfo.HResolution, hmdInfo.VResolution));
-//	stereo.SetStereoMode(OVR::Util::Render::Stereo_LeftRight_Multipass);
-//	stereo.SetHMDInfo(hmdInfo);
-//    if (hmdInfo.HScreenSize > 0.0f)
-//    {
-//        if (hmdInfo.HScreenSize > 0.140f) // 7"
-//            stereo.SetDistortionFitPointVP(-1.0f, 0.0f);
-//        else
-//            stereo.SetDistortionFitPointVP(0.0f, 1.0f);
-//    }
-//
-//	renderScale = stereo.GetDistortionScale();
-	
-	//account for render scale?
-	/*
-	float w = windowSize.w;
-	float h = windowSize.h;
-	
-	renderTarget.allocate(w, h, GL_RGB);
-	*/
-
-	//TODO: PULL BACKGROUND BACK IN
-	/*
-    backgroundTarget.allocate(w/2, h);
-	backgroundTarget.begin();
-    ofClear(0.0, 0.0, 0.0);
-	backgroundTarget.end();
-	*/
-    
-    // *** EZ BEGIN
-    
-    //ofSetWindowShape(renderTargetSize.w, renderTargetSize.h);
-    cout << "RENDER TARGET SIZE: " << renderTargetSize.w << "x" << renderTargetSize.h << endl;
-    
-    float w = renderTargetSize.w;
-    float h = renderTargetSize.h;
-	
-	//left eye
-	leftEyeMesh.addVertex(ofVec3f(0,0,0));
-	leftEyeMesh.addTexCoord(ofVec2f(0,h));
-	
-	leftEyeMesh.addVertex(ofVec3f(0,h,0));
-	leftEyeMesh.addTexCoord(ofVec2f(0,0));
-	
-	leftEyeMesh.addVertex(ofVec3f(w/2,0,0));
-	leftEyeMesh.addTexCoord(ofVec2f(w/2,h));
-
-	leftEyeMesh.addVertex(ofVec3f(w/2,h,0));
-	leftEyeMesh.addTexCoord(ofVec2f(w/2,0));
-	
-	leftEyeMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-	
-	//Right eye
-	rightEyeMesh.addVertex(ofVec3f(w/2,0,0));
-	rightEyeMesh.addTexCoord(ofVec2f(w/2,h));
-
-	rightEyeMesh.addVertex(ofVec3f(w/2,h,0));
-	rightEyeMesh.addTexCoord(ofVec2f(w/2,0));
-
-	rightEyeMesh.addVertex(ofVec3f(w,0,0));
-	rightEyeMesh.addTexCoord(ofVec2f(w,h));
-	
-	rightEyeMesh.addVertex(ofVec3f(w,h,0));
-	rightEyeMesh.addTexCoord(ofVec2f(w,0));
-	
-	rightEyeMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-    
-    // *** EZ END
-
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
+
 	reloadShader();
 	bSetup = true;
 	return true;
 }
 
 void ofxOculusDK2::initializeClientRenderer(){
-	int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
+	//int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
+	int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
 
 	Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
 	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
@@ -343,22 +249,17 @@ void ofxOculusDK2::initializeClientRenderer(){
 	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
 		// Allocate & generate distortion mesh vertices.
 		ovrDistortionMesh meshData;
-//		int caps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
 
 		ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, distortionCaps, &meshData);
 		ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], UVScaleOffset[eyeNum]);
 
 		// Now parse the vertex data and create a render ready vertex buffer from it
-//		DistortionVertex * pVBVerts = (DistortionVertex*)OVR_ALLOC(sizeof(DistortionVertex) * meshData.VertexCount );
-//		DistortionVertex * v = pVBVerts;
 		ofVboMesh& v = eyeMesh[eyeNum];
 		v.clear();
 		v.getVertices().resize(meshData.VertexCount);
 		v.getColors().resize(meshData.VertexCount);
 		v.getNormals().resize(meshData.VertexCount);
 //		v.getTexCoords().resize(meshData.VertexCount);
-		float max = 100;
-		//float min = 
 		ovrDistortionVertex * ov = meshData.pVertexData;
 		for( unsigned vertNum = 0; vertNum < meshData.VertexCount; vertNum++ ){
 			
@@ -390,6 +291,10 @@ void ofxOculusDK2::initializeClientRenderer(){
 
 		ovrHmd_DestroyDistortionMesh( &meshData );
 	}
+
+	//Direct rendering from a window handle to the Hmd.
+	// Not required if ovrHmdCap_ExtendDesktop flag is set.
+	//ovrHmd_AttachToWindow(hmd, NULL, NULL, NULL);
 }
 
 bool ofxOculusDK2::isSetup(){
@@ -398,7 +303,7 @@ bool ofxOculusDK2::isSetup(){
 
 void ofxOculusDK2::reset(){
 	if(bSetup){
-//		pFusionResult->Reset();
+		ovrHmd_RecenterPose(hmd);
 	}
 }
 
@@ -531,7 +436,6 @@ void ofxOculusDK2::reloadShader(){
 	else{
 		cout << OculusWarpVert << endl<<endl<<endl;
 		cout << OculusWarpFrag << endl;
-
 		distortionShader.setupShaderFromSource(GL_VERTEX_SHADER, OculusWarpVert);
 		distortionShader.setupShaderFromSource(GL_FRAGMENT_SHADER, OculusWarpFrag);
 		distortionShader.linkProgram();
@@ -552,7 +456,6 @@ void ofxOculusDK2::endBackground(){
     ofPopView();
     backgroundTarget.end();
 }
-
 
 void ofxOculusDK2::beginOverlay(float overlayZ, float width, float height){
 	bUseOverlay = true;
@@ -782,7 +685,6 @@ void ofxOculusDK2::draw(){
 	// Prepare for distortion rendering. 
 	ofDisableDepthTest();
 
-	
 	distortionShader.begin();
 	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
 	distortionShader.setUniform2f("TextureScale", 
@@ -804,123 +706,14 @@ void ofxOculusDK2::draw(){
 	}
 	distortionShader.end();
 	
-	//renderTarget.getTextureReference().draw(0,0, ofGetWidth(), ofGetHeight());
-
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
     
-	
-    // *** EZ BEGIN
-    /*
 
-	distortionShader.begin();
-	distortionShader.setUniformTexture("Texture0", renderTarget.getTextureReference(), 1);
-	distortionShader.setUniform2f("dimensions", renderTarget.getWidth(), renderTarget.getHeight());
-	setupShaderUniforms(ovrEye_Left);
-	leftEyeMesh.draw();
-
-	setupShaderUniforms(ovrEye_Right);
-	rightEyeMesh.draw();
-
-	distortionShader.end();
-    
-    // *** EZ END
-
-	*/
 	ofEnableDepthTest();
 
 	bUseOverlay = false;
 	bUseBackground = false;
-}
-
-void ofxOculusDK2::setupShaderUniforms(ovrEyeType eye){
-    
-    //    StereoEyeParams CalculateStereoEyeParams ( HmdRenderInfo const &hmd,
-    //                                              StereoEye eyeType,
-    //                                              Sizei const &actualRendertargetSurfaceSize,
-    //                                              bool bRendertargetSharedByBothEyes,
-    //                                              bool bRightHanded = true,
-    //                                              float zNear = 0.01f, float zFar = 10000.0f,
-    //                                              Sizei const *pOverrideRenderedPixelSize = NULL,
-    //                                              FovPort const *pOverrideFovport = NULL,
-    //                                              float zoomFactor = 1.0f );
-    HMDState* p = (HMDState *)hmd;
-    StereoEyeParams eyeParams = CalculateStereoEyeParams(p->RenderState.RenderInfo, (eye == ovrEye_Left)? StereoEye_Left : StereoEye_Right, renderTargetSize, true);
-    
-    // Note that the shader currently doesn't use Distortion.K[0], it hardwires it to 1.0.
-    distortionShader.setUniform4f("HmdWarpParam",
-                                  1.0f,
-                                  eyeParams.Distortion.Lens.K[1],
-                                  eyeParams.Distortion.Lens.K[2],
-                                  eyeParams.Distortion.Lens.K[3]);
-
-    // These are stored as deltas off the "main" distortion coefficients, but
-    // in the shader we use them as absolute values.
-    distortionShader.setUniform4f("ChromAbParam",
-                                  eyeParams.Distortion.Lens.ChromaticAberration[0] + 1.0f,
-                                  eyeParams.Distortion.Lens.ChromaticAberration[1],
-                                  eyeParams.Distortion.Lens.ChromaticAberration[2] + 1.0f,
-                                  eyeParams.Distortion.Lens.ChromaticAberration[3]);
-//
-//	setupShaderUniforms(OVR::Util::Render::StereoEye_Left);
-//	leftEyeMesh.draw();
-	
-//	setupShaderUniforms(OVR::Util::Render::StereoEye_Right);
-//	rightEyeMesh.draw();
-
-//	distortionShader.end();
-	
-//	renderTarget.getTextureReference().draw(0, ofGetHeight(), ofGetWidth(), -ofGetHeight());
-	
-	/*
-	float w = .5;
-	float h = 1.0;
-	float y = 0;
-	float x;
-	float xCenter;
-//	const OVR::Util::Render::DistortionConfig& distortionConfig = stereo.GetDistortionConfig();
-	if(eye == ovrEye_Left){
-		x = 0;
-//		xCenter = distortionConfig.XCenterOffset;
-        xCenter = eyeParams.Distortion.LensCenter.x;
-	}
-	else if(eye == ovrEye_Right){
-		x = .5;
-//		xCenter = -distortionConfig.XCenterOffset;
-        xCenter = -eyeParams.Distortion.LensCenter.x;
-	}
-
-    float as = float(renderTarget.getWidth())/float(renderTarget.getHeight())*.5;
-    // We are using 1/4 of DistortionCenter offset value here, since it is
-    // relative to [-1,1] range that gets mapped to [0, 0.5].
-	ofVec2f lensCenter(x + (w + xCenter * 0.5f)*0.5f,
-					   y + h*0.5f);
-	
-//    distortionShader.setUniform2f("LensCenter", lensCenter.x, lensCenter.y);
-    distortionShader.setUniform2f("LensCenter", eyeParams.Distortion.LensCenter.x, eyeParams.Distortion.LensCenter.y);
-	
-	ofVec2f screenCenter(x + w*0.5f, y + h*0.5f);
-    distortionShader.setUniform2f("ScreenCenter", screenCenter.x,screenCenter.y);
-	
-    // MA: This is more correct but we would need higher-res texture vertically; we should adopt this
-    // once we have asymmetric input texture scale.
-//    float scaleFactor = 1.0f / distortionConfig.Scale;
-    float scaleFactor = 1.0f;
-	//	cout << "scale factor " << scaleFactor << endl;
-	
-	ofVec2f scale( (w/2) * scaleFactor, (h/2) * scaleFactor * as);
-	ofVec2f scaleIn( (2/w), (2/h) / as);
-	
-    distortionShader.setUniform2f("Scale", scale.x,scale.y);
-    distortionShader.setUniform2f("ScaleIn",scaleIn.x,scaleIn.y);
-	*/
-
-//	cout << "UNIFORMS " << endl;
-//	cout << "	scale " << scale << endl;
-//	cout << "	scale in " << scaleIn << endl;
-//	cout << "	screen center " << screenCenter << endl;
-//	cout << "	lens center " << lensCenter << endl;
-//	cout << "	scale factor " << scaleFactor << endl;
 }
 
 void ofxOculusDK2::setUsePredictedOrientation(bool usePredicted){

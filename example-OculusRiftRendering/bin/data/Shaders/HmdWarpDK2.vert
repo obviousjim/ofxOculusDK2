@@ -24,8 +24,6 @@ void main()
 	vec3 TanEyeAngleG = vec3 ( gl_Color.r, gl_Color.g, 1.0 );
 	vec3 TanEyeAngleB = vec3 ( gl_Color.b, gl_Color.a, 1.0 );
 
-	// Accurate time warp lerp vs. faster
-
 	mat3 EyeRotation;
 	EyeRotation[0] = mix ( EyeRotationStart[0], EyeRotationEnd[0], gl_Vertex.z ).xyz;
 	EyeRotation[1] = mix ( EyeRotationStart[1], EyeRotationEnd[1], gl_Vertex.z ).xyz;

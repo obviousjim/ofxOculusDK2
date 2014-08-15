@@ -31,20 +31,7 @@ using namespace OVR::Util::Render;
 using namespace OVR::CAPI;
 
 #include "Sensors/OVR_DeviceConstants.h"
-
-//using namespace OVR::OvrPlatform;
-//using namespace OVR::Render;
-
-#ifdef TARGET_WIN32
-//#include "
-#endif
-
 #include <iostream>
-
-//#define STD_GRAV 9.81 // What SHOULD work with Rift, but off by 1000
-//#define STD_GRAV 0.00981  // This gives nice 1.00G on Z with Rift face down !!!
-
-//#define DTR = 0.0174532925f
 
 
 
@@ -64,13 +51,6 @@ class ofxOculusDK2
 	bool isSetup();
 	void reset();
 	bool lockView;
-    
-//	void calculateHmdValues();
-//	pRendertargetTexture;
-    //Ptr<DistortionRenderer> pRenderer;
-	//RenderDevice pRenderer;
-
-	//JG NEW SDK VARS
 
 	//draw background, before rendering eyes
     void beginBackground();
@@ -151,12 +131,6 @@ class ofxOculusDK2
 	float overlayZDistance;
 
     ovrHmd              hmd;
-   //ovrEyeRenderDesc    eyeRenderDesc[2];
-    //Matrix4f            eyeProjection[2];    // Projection matrix for eye.
-    //Matrix4f            orthoProjection[2];  // Projection for 2D.
-    //ovrPosef            eyeRenderPose[2];    // Poses we used for rendering.
-    //ovrTexture          eyeTexture[2];
-    //Sizei               eyeRenderSize[2];    // Saved render eye sizes; base for dynamic sizing.
 	ovrFovPort			eyeFov[2];
 	ovrEyeRenderDesc	eyeRenderDesc[2];
 	ovrRecti			eyeRenderViewport[2];
@@ -167,14 +141,8 @@ class ofxOculusDK2
 
 	void initializeClientRenderer();
 
-
     Sizei               windowSize;
     
-//	Ptr<DeviceManager>	pManager;
-//	Ptr<HMDDevice>		pHMD;
-//	Ptr<SensorDevice>	pSensor;
-//	SensorFusion*       pFusionResult;
-//	HMDInfo				hmdInfo;
 
 	OVR::Util::Render::StereoConfig stereo;
 	float renderScale;
