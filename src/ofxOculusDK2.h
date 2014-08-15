@@ -48,6 +48,8 @@ class ofxOculusDK2
 	ofCamera* baseCamera;
 	
 	bool setup();
+	bool setup(ofFbo::Settings& render_settings);
+
 	bool isSetup();
 	void reset();
 	bool lockView;
@@ -95,7 +97,8 @@ class ofxOculusDK2
 	//centered at the mouse
 	//Good way to draw custom cursors. don't forget to push/pop matrix around the call
 	void multBillboardMatrix();
-	
+	void multBillboardMatrix(ofVec3f objectPosition, ofVec3f upDirection = ofVec3f(0,1,0) );
+
 	float distanceFromMouse(ofVec3f worldPoint);
 	float distanceFromScreenPoint(ofVec3f worldPoint, ofVec2f screenPoint);
 	
@@ -110,8 +113,12 @@ class ofxOculusDK2
 	ofFbo& getBackgroundTarget(){
 		return backgroundTarget;
 	}
-	
+	ofFbo& getRenderTarget(){
+        return renderTarget;
+    }
+
 	ofRectangle getOculusViewport();
+	bool isHD();
 
 
   private:

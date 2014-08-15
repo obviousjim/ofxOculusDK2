@@ -146,14 +146,7 @@ ofxOculusDK2::ofxOculusDK2(){
 
 ofxOculusDK2::~ofxOculusDK2(){
 	if(bSetup){
-//		pSensor.Clear();
-//        pHMD.Clear();
-//		pManager.Clear();
-//        
-//        delete pFusionResult;
-//                
-//		System::Destroy();
-        
+
         if (hmd) {
             ovrHmd_Destroy(hmd);
             hmd = 0;
@@ -165,8 +158,14 @@ ofxOculusDK2::~ofxOculusDK2(){
 	}
 }
 
-
 bool ofxOculusDK2::setup(){
+	ofFbo::Settings settings;
+	settings.numSamples = 4;
+	settings.internalformat = GL_RGB;
+	return setup(settings);
+}
+
+bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	
 	if(bSetup){
 		ofLogError("ofxOculusDK2::setup") << "Already set up";
@@ -206,22 +205,9 @@ bool ofxOculusDK2::setup(){
 	// Start the sensor which provides the Rift’s pose and motion.
 	ovrHmd_ConfigureTracking(hmd, 
 		ovrTrackingCap_Orientation | 
-		//ovrTrackingCap_MagYawCorrection | 
+		ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
 	
-
-	// Query the HMD for the current tracking state.
-
-	initializeClientRenderer();
-
-    bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
-
-	reloadShader();
-	bSetup = true;
-	return true;
-}
-
-void ofxOculusDK2::initializeClientRenderer(){
 	//int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
 	int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
 
@@ -233,10 +219,10 @@ void ofxOculusDK2::initializeClientRenderer(){
 	renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
 	renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
 
-	const int eyeRenderMultisample = 1;
-	renderTarget.allocate(renderTargetSize.w, renderTargetSize.h,GL_RGBA,eyeRenderMultisample);
+	render_settings.width = renderTargetSize.w;
+	render_settings.height = renderTargetSize.h;
+	renderTarget.allocate(render_settings);
 	
-
 	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
 	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
 
@@ -291,10 +277,11 @@ void ofxOculusDK2::initializeClientRenderer(){
 
 		ovrHmd_DestroyDistortionMesh( &meshData );
 	}
+    bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
-	//Direct rendering from a window handle to the Hmd.
-	// Not required if ovrHmdCap_ExtendDesktop flag is set.
-	//ovrHmd_AttachToWindow(hmd, NULL, NULL, NULL);
+	reloadShader();
+	bSetup = true;
+	return true;
 }
 
 bool ofxOculusDK2::isSetup(){
@@ -654,21 +641,25 @@ float ofxOculusDK2::distanceFromScreenPoint(ofVec3f worldPoint, ofVec2f screenPo
 
 
 void ofxOculusDK2::multBillboardMatrix(){
+	multBillboardMatrix(mousePosition3D());
+}
+
+void ofxOculusDK2::multBillboardMatrix(ofVec3f objectPosition, ofVec3f updirection){
+
 	if(baseCamera == NULL){
 		return;
 	}
-	ofVec3f mouse3d = mousePosition3D();
+	
 	ofNode n;
-	n.setPosition(  mouse3d );
-	n.lookAt(baseCamera->getPosition());
+	n.setPosition( objectPosition );
+	n.lookAt(baseCamera->getPosition(), updirection);
 	ofVec3f axis; float angle;
 	n.getOrientationQuat().getRotate(angle, axis);
 	// Translate the object to its position.
-	ofTranslate( mouse3d );
+	ofTranslate( objectPosition );
 	// Perform the rotation.
 	ofRotate(angle, axis.x, axis.y, axis.z);
 }
-
 ofVec2f ofxOculusDK2::gazePosition2D(){
     ofVec3f angles = getOrientationQuat().getEuler();
 	return ofVec2f(ofMap(angles.y, 90, -90, 0, ofGetWidth()),
@@ -723,3 +714,9 @@ bool ofxOculusDK2::getUsePredictiveOrientation(){
 	return bUsePredictedOrientation;
 }
 
+bool ofxOculusDK2::isHD(){
+	if(bSetup){
+		return hmd->Type == ovrHmd_DK2;
+	}
+	return false;
+}
