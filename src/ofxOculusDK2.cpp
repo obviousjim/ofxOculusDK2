@@ -1,14 +1,14 @@
 //
-//  ofxOculusRift.cpp
+//  ofxOculusDK2.cpp
 //  OculusRiftRendering
 //
 //  Created by Andreas Müller on 30/04/2013.
 //  Updated by James George September 27th 2013
 //  Updated by Jason Walters October 22 2013
-//
+//  Adapted to DK2 by James George and Elie Zananiri August 2014
 
 #include "ofxOculusDK2.h"
-#include "OVR_CAPI_GL.h"
+//#include "OVR_CAPI_GL.h"
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -65,6 +65,7 @@ static const char* OculusWarpVert = GLSL(120,
 		oTexCoord2 = SrcCoordB;
 		oTexCoord2.y = 1.0-oTexCoord2.y;
 
+        //Vignette
 		oColor = vec4(gl_Normal.z, gl_Normal.z, gl_Normal.z, gl_Normal.z);
 	}
 );
@@ -161,7 +162,7 @@ ofxOculusDK2::~ofxOculusDK2(){
 bool ofxOculusDK2::setup(){
 	ofFbo::Settings settings;
 	settings.numSamples = 4;
-	settings.internalformat = GL_RGB;
+	settings.internalformat = GL_RGBA;
 	return setup(settings);
 }
 
@@ -199,17 +200,14 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
         windowSize = Sizei(ofGetWidth(), ofGetHeight()); //Sizei(960, 540); avoid rotated output bug.
     }
     
-    // Configure HMD Stereo Settings
-    //calculateHmdValues();
-
 	// Start the sensor which provides the Rift’s pose and motion.
 	ovrHmd_ConfigureTracking(hmd, 
 		ovrTrackingCap_Orientation | 
 		ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
 	
-	//int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
-	int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
+	int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
+	//int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
 
 	Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
 	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
@@ -343,9 +341,6 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	ofLoadIdentityMatrix();
 	
 	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, true) );
-	//ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 100.f, 100000.0f, false) );
-	//ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, false) ) ;
-	//projectionMatrix.scale(-1,1,1);
 	ofLoadMatrix( projectionMatrix );
 	
 	//what to do about this 
@@ -492,7 +487,7 @@ void ofxOculusDK2::beginLeftEye(){
 	insideFrame = true;
 
 	renderTarget.begin();
-	ofClear(0,0,0);
+	//ofClear(0,0,0);
 	
 	ofPushView();
 	ofPushMatrix();
@@ -540,7 +535,8 @@ void ofxOculusDK2::renderOverlay(){
 	ofPushMatrix();
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 	glDisable(GL_LIGHTING);
-	glDisable(GL_DEPTH_TEST);
+	ofDisableDepthTest();
+
 	
 	if(baseCamera != NULL){
 		ofTranslate(baseCamera->getPosition());
@@ -683,7 +679,7 @@ void ofxOculusDK2::draw(){
 	///JG START HERE 
 	// Prepare for distortion rendering. 
 	ofDisableDepthTest();
-
+    ofEnableAlphaBlending();
 	distortionShader.begin();
 	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
 	distortionShader.setUniform2f("TextureScale", 
