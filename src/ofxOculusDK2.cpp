@@ -8,7 +8,6 @@
 //  Adapted to DK2 by James George and Elie Zananiri August 2014
 
 #include "ofxOculusDK2.h"
-//#include "OVR_CAPI_GL.h"
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -143,6 +142,7 @@ ofxOculusDK2::ofxOculusDK2(){
 	bUseBackground = false;
 	overlayZDistance = -200;
 	oculusScreenSpaceScale = 2;
+	applyTranslation = true;
 }
 
 ofxOculusDK2::~ofxOculusDK2(){
@@ -298,7 +298,6 @@ void ofxOculusDK2::reset(){
 	}
 }
 
-
 ofQuaternion ofxOculusDK2::getOrientationQuat(){
 //	return toOf(pFusionResult->GetPredictedOrientation());
 
@@ -370,10 +369,11 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 //		ofLoadMatrix( headRotation );
 	}
 	
-	ofMatrix4x4 viewAdjust;
-	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
-	ofMultMatrix(viewAdjust);
-	
+	if(applyTranslation){
+		ofMatrix4x4 viewAdjust;
+		viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+		ofMultMatrix(viewAdjust);
+	}
 
 	/*
 	ofViewport(toOf(eyeRenderViewport[eye]));
