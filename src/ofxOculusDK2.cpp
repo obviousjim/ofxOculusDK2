@@ -487,7 +487,7 @@ void ofxOculusDK2::beginLeftEye(){
 	insideFrame = true;
 
 	renderTarget.begin();
-	//ofClear(0,0,0);
+	ofClear(0,0,0);
 	
 	ofPushView();
 	ofPushMatrix();
