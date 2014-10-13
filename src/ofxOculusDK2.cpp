@@ -6,6 +6,7 @@
 //  Updated by James George September 27th 2013
 //  Updated by Jason Walters October 22 2013
 //  Adapted to DK2 by James George and Elie Zananiri August 2014
+//  Updated for DK2 by Matt Ebb October 2014
 
 #include "ofxOculusDK2.h"
 
@@ -163,6 +164,7 @@ bool ofxOculusDK2::setup(){
 	ofFbo::Settings settings;
 	settings.numSamples = 4;
 	settings.internalformat = GL_RGBA;
+    settings.useDepth = true;
 	return setup(settings);
 }
 
@@ -236,6 +238,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
 	//Generate distortion mesh for each eye
+    
 	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
 		// Allocate & generate distortion mesh vertices.
 		ovrDistortionMesh meshData;
@@ -281,6 +284,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 
 		ovrHmd_DestroyDistortionMesh( &meshData );
 	}
+    
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
 	reloadShader();
@@ -308,20 +312,8 @@ ofQuaternion ofxOculusDK2::getOrientationQuat(){
 	 return ofQuaternion();
 }
 
-ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
-	
-	//return toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
-	
-	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
-	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
-		return toOf( Matrix4f(ts.HeadPose.ThePose.Orientation));
-	}
-    return ofMatrix4x4();
-}
-
 void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	
-
 	if(bUseBackground){
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
 		glDisable(GL_LIGHTING);
@@ -331,8 +323,7 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	}
     
 	
-	///////////////////OLD WAY
-	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
+    headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
 
 	ofViewport(toOf(eyeRenderViewport[eye]));
 
@@ -341,69 +332,20 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	
 	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, true) );
 	ofLoadMatrix( projectionMatrix );
-	
-	//what to do about this 
-	//******************
-	//Matrix4f view = Matrix4f(orientation.Inverted()) * Matrix4f::Translation(-WorldEyePosition);
-	//and this view adjust
-	//Matrix4f::Translation(EyeRenderDesc[eye].ViewAdjust) * view);
-	//******************
 
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
-		
-	//orientationMatrix = ofMatrix4x4::getTransposedOf( getOrientationMat() );
-	//orientationMatrix = getOrientationMat().getInverse();
-	orientationMatrix = getOrientationMat();
-	
-	ofMatrix4x4 headRotation = orientationMatrix;
-	if(baseCamera != NULL){
-		headRotation = headRotation * baseCamera->getGlobalTransformMatrix();
-		baseCamera->begin();
-		baseCamera->end();
-	}
-	
-	// lock the camera when enabled...
-	if (!lockView) {
-		ofLoadMatrix( ofMatrix4x4::getInverseOf( headRotation ));
-//		ofLoadMatrix( headRotation );
-	}
-	
-	if(applyTranslation){
-		ofMatrix4x4 viewAdjust;
-		viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
-		ofMultMatrix(viewAdjust);
-	}
 
-	/*
-	ofViewport(toOf(eyeRenderViewport[eye]));
+    ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix(); 
+    ofMatrix4x4 viewAdjust;
+    viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+    
+    ofMatrix4x4 hmdView =   ofMatrix4x4::newRotationMatrix( toOf(headPose[eye].Orientation)) * \
+                            ofMatrix4x4::newTranslationMatrix( toOf(headPose[eye].Position));
 
-	ofSetMatrixMode(OF_MATRIX_PROJECTION);
-	ofLoadIdentityMatrix();
-	//ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 500.f, 100000.0f, true)) );
-	//ofMatrix4x4 projectionMatrix = ofMatrix4x4::getTransposedOf( toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 500.f, 10000.0f, true)) );
-	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true)) ;
-	//projectionMatrix.scale(-1,1,1);
-	ofLoadMatrix( projectionMatrix );
-
-	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
-	ofLoadIdentityMatrix();
-	headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
-	Quatf orientation = Quatf(headPose[eye].Orientation);
-	Matrix4f view = Matrix4f( orientation.Inverted() ) * Matrix4f::Translation( toOVR(-baseCamera->getPosition()) );	
-	
-	//toOVR(baseCamera->getGlobalTransformMatrix())
-
-
-	//ofLoadMatrix( ofMatrix4x4::getInverseOf( toOf(Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust) * view) ) );
-	ofLoadMatrix( toOf( view * Matrix4f::Translation(eyeRenderDesc[eye].ViewAdjust)  ) );
-
-//	ofScale(1,1,-1);
-	//ofLoadMatrix( toOf(view) );
-//	ofScale(1,-1,1);
-//	ofScale(.0001, .0001, .0001);
-*/
-
+    // final multiplication of everything
+    ofLoadMatrix( viewAdjust  * (hmdView * baseCameraMatrix).getInverse() );
+    
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
@@ -529,7 +471,7 @@ void ofxOculusDK2::endRightEye(){
 
 void ofxOculusDK2::renderOverlay(){
 
-//	cout << "renering overlay!" << endl;
+	// cout << "renering overlay!" << endl;
 	
 	ofPushStyle();
 	ofPushMatrix();
