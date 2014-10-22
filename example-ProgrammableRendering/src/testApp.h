@@ -4,7 +4,7 @@
 #include "ofxOculusDK2.h"
 
 typedef struct{
-	ofColor color;
+	ofFloatColor color;
 	ofVec3f pos;
 	ofVec3f floatPos;
 	float radius;
@@ -41,6 +41,7 @@ class testApp : public ofBaseApp
 	bool showOverlay;
 	bool predictive;
 	vector<DemoSphere> demos;
+    ofShader sphereshader;
     
     ofVec3f cursor2D;
     ofVec3f cursor3D;

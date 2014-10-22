@@ -25,6 +25,8 @@ void testApp::setup()
 	}
     setupSpheres();
 	
+    sphereshader.load("Shaders_GL3/simple.vert", "Shaders_GL3/simple.frag");
+    
 	//enable mouse;
     cam.setAutoDistance(false);
 	cam.begin();
@@ -39,7 +41,7 @@ void testApp::update()
 		demos[i].floatPos.y = ofSignedNoise(ofGetElapsedTimef()/10.0,
 									  demos[i].pos.x/1.0,
 									  demos[i].pos.z/1.0,
-									  demos[i].radius*1.0) * demos[i].radius*0.2;
+									  demos[i].radius*1.0) * demos[i].radius*2;
 		
 	}
     
@@ -64,9 +66,9 @@ void testApp::update()
 void testApp::setupSpheres() {
     
     for(int i = 0; i < demos.size(); i++) {
-        demos[i].color = ofColor(ofRandom(255),
-                                 ofRandom(255),
-                                 ofRandom(255));
+        demos[i].color = ofFloatColor(ofRandom(1.0),
+                                 ofRandom(1.0),
+                                 ofRandom(1.0));
         
         demos[i].pos = ofVec3f(ofRandom(-10, 10),0,ofRandom(-10,10));
         
@@ -111,7 +113,6 @@ void testApp::draw()
 			oculusRift.endOverlay();
 		}
         */
-        
         ofSetColor(255);
 		glEnable(GL_DEPTH_TEST);
 
@@ -147,12 +148,10 @@ void testApp::drawScene()
     
 	ofPushStyle();
 	//ofNoFill();
-	
+	sphereshader.begin();
     for(int i = 0; i < demos.size(); i++){
 		ofPushMatrix();
-//		ofRotate(ofGetElapsedTimef()*(50-demos[i].radius), 0, 1, 0);
 		ofTranslate(demos[i].floatPos);
-//		ofRotate(ofGetElapsedTimef()*4*(50-demos[i].radius), 0, 1, 0);
 
         if (demos[i].bMouseOver)
             ofSetColor(ofColor::white.getLerped(ofColor::red, sin(ofGetElapsedTimef()*10.0)*.5+.5));
@@ -161,12 +160,20 @@ void testApp::drawScene()
         else
             ofSetColor(demos[i].color);
 
+        sphereshader.setUniform3f("color", demos[i].color.r, demos[i].color.g, demos[i].color.b);
+        
 		ofSphere(demos[i].radius);
 		ofPopMatrix();
 	}
     
+    sphereshader.setUniform3f("color", 0.0, 0.6, 0.3);
+    ofSphere(600);
+    
+    sphereshader.end();
+    
 	//billboard and draw the mouse
     
+    /*
 	if(oculusRift.isSetup()){
 		
 		ofPushMatrix();
@@ -176,6 +183,7 @@ void testApp::drawScene()
 		ofPopMatrix();
 
 	}
+     */
 	
 	ofPopStyle();
     

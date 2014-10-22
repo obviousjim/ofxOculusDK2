@@ -221,7 +221,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 
 	render_settings.width = renderTargetSize.w;
 	render_settings.height = renderTargetSize.h;
-	renderTarget.allocate(render_settings);
+    
+    renderTarget.allocate(render_settings);
 	//renderTarget.allocate(renderTargetSize.w,renderTargetSize.h, GL_RGB, 4);
     backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
 
@@ -321,7 +322,6 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		backgroundTarget.getTextureReference().draw(toOf(eyeRenderViewport[eye]));
 		glPopAttrib();
 	}
-    
 	
     headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
 
@@ -335,6 +335,11 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
+    
+//    if(baseCamera != NULL){
+//        baseCamera->begin();
+//        baseCamera->end();
+//    }
 
     ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix(); 
     ofMatrix4x4 viewAdjust;
@@ -345,7 +350,7 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 
     // final multiplication of everything
     ofLoadMatrix( viewAdjust  * (hmdView * baseCameraMatrix).getInverse() );
-    
+    // ofLoadMatrix( (baseCameraMatrix).getInverse() );
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
@@ -355,10 +360,16 @@ ofRectangle ofxOculusDK2::getOculusViewport(){
 }
 
 void ofxOculusDK2::reloadShader(){
+    // XXX mattebb
+    if(ofFile("Shaders_GL3/debug.vert").exists() && ofFile("Shaders_GL3/debug.frag").exists()){
+		cout << "** debug SHADERS loading from file" << endl;
+		debugShader.load("Shaders_GL3/debug");
+	}
+    
 	//this allows you to hack on the shader if you'd like
-	if(ofFile("Shaders/HmdWarpDK2.vert").exists() && ofFile("Shaders/HmdWarpDK2.frag").exists()){
+	if(ofFile("Shaders_GL3/HmdWarpDK2.vert").exists() && ofFile("Shaders_GL3/HmdWarpDK2.frag").exists()){
 		cout << "** SHADERS loading from file" << endl;
-		distortionShader.load("Shaders/HmdWarpDK2");
+		distortionShader.load("Shaders_GL3/HmdWarpDK2");
 	}
 	//otherwise we load the hardcoded one
 	else{
@@ -429,12 +440,13 @@ void ofxOculusDK2::beginLeftEye(){
 	insideFrame = true;
 
 	renderTarget.begin();
-	ofClear(0,0,0);
+	ofClear(1,0,0);
 	
 	ofPushView();
 	ofPushMatrix();
 
 	setupEyeParams(ovrEye_Left);
+    
 }
 
 void ofxOculusDK2::endLeftEye(){
@@ -618,6 +630,45 @@ void ofxOculusDK2::draw(){
 
 	ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
 
+//    ofPixels dp;
+//    renderTarget.readToPixels(dp);
+//    debugImage.setFromPixels(dp);
+//    debugImage.saveImage("debug.png");
+
+
+    /*
+    ofDisableDepthTest();
+    ofEnableAlphaBlending();
+	debugShader.begin();
+    debugShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
+    debugShader.setUniform2f("TextureScale",
+                  renderTarget.getTextureReference().getWidth(),
+                  renderTarget.getTextureReference().getHeight());
+    
+    debugMesh.clear();
+    float width = renderTargetSize.w;
+    float height = renderTargetSize.h;
+	//ofRectangle debugrect = ofRectangle(-width/2, -height/2,width,height);
+    ofRectangle debugrect = ofRectangle(100,100, width/2,height/2);
+	debugMesh.addVertex( ofVec3f(debugrect.getMinX(), debugrect.getMinY(), 100) );
+	debugMesh.addVertex( ofVec3f(debugrect.getMaxX(), debugrect.getMinY(), 100) );
+	debugMesh.addVertex( ofVec3f(debugrect.getMinX(), debugrect.getMaxY(), 100) );
+	debugMesh.addVertex( ofVec3f(debugrect.getMaxX(), debugrect.getMaxY(), 100) );
+    
+	debugMesh.addTexCoord( ofVec2f(0, height ) );
+	debugMesh.addTexCoord( ofVec2f(width, height) );
+	debugMesh.addTexCoord( ofVec2f(0, 0) );
+	debugMesh.addTexCoord( ofVec2f(width, 0) );
+	
+	debugMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
+    debugMesh.draw();
+    
+    debugShader.end();
+    */
+    
+    
+    
+    
 	///JG START HERE 
 	// Prepare for distortion rendering. 
 	ofDisableDepthTest();

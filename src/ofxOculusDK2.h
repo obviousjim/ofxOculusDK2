@@ -158,9 +158,16 @@ class ofxOculusDK2
     ofFbo backgroundTarget;
 	ofFbo overlayTarget;
 	ofShader distortionShader;
-
+    
+    ofShader debugShader;   // XXX mattebb
+    ofMesh debugMesh;
+    ofImage debugImage;
+    
 	void setupEyeParams(ovrEyeType eye);
 	void setupShaderUniforms(ovrEyeType eye);
+    
+    ofMatrix4x4 getProjectionMatrix(ovrEyeType eye);
+    ofMatrix4x4 getViewMatrix(ovrEyeType eye);
 	
 	void renderOverlay();
 };
