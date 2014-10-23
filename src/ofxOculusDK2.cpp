@@ -361,24 +361,42 @@ ofRectangle ofxOculusDK2::getOculusViewport(){
 
 void ofxOculusDK2::reloadShader(){
     // XXX mattebb
-    if(ofFile("Shaders_GL3/debug.vert").exists() && ofFile("Shaders_GL3/debug.frag").exists()){
+    /*
+     if(ofFile("Shaders_GL3/debug.vert").exists() && ofFile("Shaders_GL3/debug.frag").exists()){
 		cout << "** debug SHADERS loading from file" << endl;
 		debugShader.load("Shaders_GL3/debug");
 	}
+     */
+    
     
 	//this allows you to hack on the shader if you'd like
-	if(ofFile("Shaders_GL3/HmdWarpDK2.vert").exists() && ofFile("Shaders_GL3/HmdWarpDK2.frag").exists()){
-		cout << "** SHADERS loading from file" << endl;
-		distortionShader.load("Shaders_GL3/HmdWarpDK2");
-	}
-	//otherwise we load the hardcoded one
-	else{
-		cout << OculusWarpVert << endl<<endl<<endl;
-		cout << OculusWarpFrag << endl;
-		distortionShader.setupShaderFromSource(GL_VERTEX_SHADER, OculusWarpVert);
-		distortionShader.setupShaderFromSource(GL_FRAGMENT_SHADER, OculusWarpFrag);
-		distortionShader.linkProgram();
-	}
+    if (ofIsGLProgrammableRenderer()) {
+        if(ofFile("Shaders_GL3/HmdWarpDK2.vert").exists() && ofFile("Shaders_GL3/HmdWarpDK2.frag").exists()){
+            cout << "** SHADERS loading from file" << endl;
+            distortionShader.load("Shaders_GL3/HmdWarpDK2");
+        }
+        //otherwise we load the hardcoded one
+        else{   // XXX mattebb : create an embedded shader for GL3 ?
+            cout << OculusWarpVert << endl<<endl<<endl;
+            cout << OculusWarpFrag << endl;
+            distortionShader.setupShaderFromSource(GL_VERTEX_SHADER, OculusWarpVert);
+            distortionShader.setupShaderFromSource(GL_FRAGMENT_SHADER, OculusWarpFrag);
+            distortionShader.linkProgram();
+        }
+    } else {
+        if(ofFile("Shaders/HmdWarpDK2.vert").exists() && ofFile("Shaders/HmdWarpDK2.frag").exists()){
+            cout << "** SHADERS loading from file" << endl;
+            distortionShader.load("Shaders/HmdWarpDK2");
+        }
+        //otherwise we load the hardcoded one
+        else{
+            cout << OculusWarpVert << endl<<endl<<endl;
+            cout << OculusWarpFrag << endl;
+            distortionShader.setupShaderFromSource(GL_VERTEX_SHADER, OculusWarpVert);
+            distortionShader.setupShaderFromSource(GL_FRAGMENT_SHADER, OculusWarpFrag);
+            distortionShader.linkProgram();
+        }
+    }
 }
 
 void ofxOculusDK2::beginBackground(){

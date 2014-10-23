@@ -25,7 +25,8 @@ void testApp::setup()
 	}
     setupSpheres();
 	
-    sphereshader.load("Shaders_GL3/simple.vert", "Shaders_GL3/simple.frag");
+    if (ofIsGLProgrammableRenderer())
+        sphereshader.load("Shaders_GL3/simple.vert", "Shaders_GL3/simple.frag");
     
 	//enable mouse;
     cam.setAutoDistance(false);
@@ -148,7 +149,7 @@ void testApp::drawScene()
     
 	ofPushStyle();
 	//ofNoFill();
-	sphereshader.begin();
+	if(ofIsGLProgrammableRenderer()) sphereshader.begin();
     for(int i = 0; i < demos.size(); i++){
 		ofPushMatrix();
 		ofTranslate(demos[i].floatPos);
@@ -160,16 +161,16 @@ void testApp::drawScene()
         else
             ofSetColor(demos[i].color);
 
-        sphereshader.setUniform3f("color", demos[i].color.r, demos[i].color.g, demos[i].color.b);
+        if(ofIsGLProgrammableRenderer()) sphereshader.setUniform3f("color", demos[i].color.r, demos[i].color.g, demos[i].color.b);
         
 		ofSphere(demos[i].radius);
 		ofPopMatrix();
 	}
     
-    sphereshader.setUniform3f("color", 0.0, 0.6, 0.3);
+    if(ofIsGLProgrammableRenderer()) sphereshader.setUniform3f("color", 0.0, 0.6, 0.3);
     ofSphere(600);
     
-    sphereshader.end();
+    if(ofIsGLProgrammableRenderer()) sphereshader.end();
     
 	//billboard and draw the mouse
     
