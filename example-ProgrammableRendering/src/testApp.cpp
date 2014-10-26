@@ -8,9 +8,9 @@ void testApp::setup()
 	ofSetLogLevel( OF_LOG_VERBOSE );
 	ofSetVerticalSync( true );
     ofEnableDepthTest();
-
-//    ofSetWindowPosition(1920, 0);
-//    ofToggleFullscreen();
+      
+    //    ofSetWindowPosition(1920, 0);
+    //    ofToggleFullscreen();
 	showOverlay = false;
 	predictive = true;
 	
@@ -38,7 +38,7 @@ void testApp::setup()
 //--------------------------------------------------------------
 void testApp::update()
 {
-	for(int i = 0; i < demos.size(); i++){
+    for(int i = 0; i < demos.size(); i++){
 		demos[i].floatPos.y = ofSignedNoise(ofGetElapsedTimef()/10.0,
 									  demos[i].pos.x/1.0,
 									  demos[i].pos.z/1.0,
@@ -88,7 +88,8 @@ void testApp::setupSpheres() {
 void testApp::draw()
 {
 	if(oculusRift.isSetup()){
-		
+        cam.begin();
+        
         /*
 		if(showOverlay){
 			
@@ -129,6 +130,8 @@ void testApp::draw()
 		oculusRift.draw();
 		
 		glDisable(GL_DEPTH_TEST);
+        
+        cam.end();
     }
 	else{
 		cam.begin();

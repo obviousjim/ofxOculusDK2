@@ -336,12 +336,8 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
     
-//    if(baseCamera != NULL){
-//        baseCamera->begin();
-//        baseCamera->end();
-//    }
-
-    ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix(); 
+    ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix();
+    
     ofMatrix4x4 viewAdjust;
     viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
     
@@ -350,7 +346,6 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 
     // final multiplication of everything
     ofLoadMatrix( viewAdjust  * (hmdView * baseCameraMatrix).getInverse() );
-    // ofLoadMatrix( (baseCameraMatrix).getInverse() );
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
