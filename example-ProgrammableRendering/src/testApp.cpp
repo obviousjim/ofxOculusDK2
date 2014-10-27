@@ -8,17 +8,20 @@ void testApp::setup()
 	ofSetLogLevel( OF_LOG_VERBOSE );
 	ofSetVerticalSync( true );
     ofEnableDepthTest();
-      
+   
     //    ofSetWindowPosition(1920, 0);
     //    ofToggleFullscreen();
 	showOverlay = false;
 	predictive = true;
 	
-	ofHideCursor();
+	//ofHideCursor();
     
 	oculusRift.baseCamera = &cam;
 	oculusRift.setup();
 	
+    // needed for programmable renderer
+    ofViewport(ofGetNativeViewport());
+    
 	for(int i = 0; i < 20; i++){
 		DemoSphere d;
 		demos.push_back(d);
@@ -32,6 +35,8 @@ void testApp::setup()
     cam.setAutoDistance(false);
 	cam.begin();
 	cam.end();
+    cam.setGlobalPosition(0, 1.9, -3);
+    //cam.lookAt(ofVec3f(0));
 }
 
 
@@ -39,14 +44,13 @@ void testApp::setup()
 void testApp::update()
 {
     for(int i = 0; i < demos.size(); i++){
-		demos[i].floatPos.y = ofSignedNoise(ofGetElapsedTimef()/10.0,
+		demos[i].floatPos.y = 4 * ofSignedNoise(ofGetElapsedTimef()/10.0,
 									  demos[i].pos.x/1.0,
 									  demos[i].pos.z/1.0,
 									  demos[i].radius*1.0) * demos[i].radius*2;
 		
 	}
     
-    /*
     if(oculusRift.isSetup()){
         ofRectangle viewport = oculusRift.getOculusViewport();
         for(int i = 0; i < demos.size(); i++){
@@ -61,7 +65,7 @@ void testApp::update()
             demos[i].bGazeOver = (gazeDist < 25);
         }
     }
-    */
+    
 }
 
 void testApp::setupSpheres() {
@@ -88,7 +92,7 @@ void testApp::setupSpheres() {
 void testApp::draw()
 {
 	if(oculusRift.isSetup()){
-        cam.begin();
+        //cam.begin();
         
         /*
 		if(showOverlay){
@@ -131,7 +135,7 @@ void testApp::draw()
 		
 		glDisable(GL_DEPTH_TEST);
         
-        cam.end();
+        //cam.end();
     }
 	else{
 		cam.begin();
@@ -145,10 +149,10 @@ void testApp::draw()
 void testApp::drawScene()
 {
 	
-    ofPushMatrix();
-	ofRotate(90, 0, 0, -1);
-	ofDrawGridPlane(10.0f, 2.0f, false );
-	ofPopMatrix();
+    //ofPushMatrix();
+	//ofRotate(90, 0, 0, -1);
+	ofDrawBox(5.0f, 0.1f, 5.0f);
+	//ofPopMatrix();
     
 	ofPushStyle();
 	//ofNoFill();
@@ -157,16 +161,23 @@ void testApp::drawScene()
 		ofPushMatrix();
 		ofTranslate(demos[i].floatPos);
 
-        if (demos[i].bMouseOver)
-            ofSetColor(ofColor::white.getLerped(ofColor::red, sin(ofGetElapsedTimef()*10.0)*.5+.5));
+        ofFloatColor col;
+        /*if (demos[i].bMouseOver)
+            col = ofColor::white.getLerped(ofColor::red, sin(ofGetElapsedTimef()*10.0)*.5+.5);
         else if (demos[i].bGazeOver)
-            ofSetColor(ofColor::white.getLerped(ofColor::green, sin(ofGetElapsedTimef()*10.0)*.5+.5));
+            col = ofColor::white.getLerped(ofColor::green, sin(ofGetElapsedTimef()*10.0)*.5+.5);
         else
-            ofSetColor(demos[i].color);
+         */
+            col = demos[i].color * demos[i].floatPos.y;
 
-        if(ofIsGLProgrammableRenderer()) sphereshader.setUniform3f("color", demos[i].color.r, demos[i].color.g, demos[i].color.b);
+        if(ofIsGLProgrammableRenderer()) {
+            sphereshader.setUniform3f("color", col.r, col.g, col.b);
+        } else {
+            ofSetColor(col);
+        }
         
 		ofSphere(demos[i].radius);
+
 		ofPopMatrix();
 	}
     
@@ -177,7 +188,6 @@ void testApp::drawScene()
     
 	//billboard and draw the mouse
     
-    /*
 	if(oculusRift.isSetup()){
 		
 		ofPushMatrix();
@@ -187,7 +197,6 @@ void testApp::drawScene()
 		ofPopMatrix();
 
 	}
-     */
 	
 	ofPopStyle();
     

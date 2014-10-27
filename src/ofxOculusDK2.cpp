@@ -313,6 +313,26 @@ ofQuaternion ofxOculusDK2::getOrientationQuat(){
 	 return ofQuaternion();
 }
 
+ofMatrix4x4 ofxOculusDK2::getProjectionMatrix(ovrEyeType eye) {
+    return toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, true) );
+}
+
+ofMatrix4x4 ofxOculusDK2::getViewMatrix(ovrEyeType eye) {
+
+    ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix();
+    ofMatrix4x4 viewAdjust;
+    
+    // pre-transform offset for IPD
+    viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+    
+    // head orientation and position
+    ofMatrix4x4 hmdView =   ofMatrix4x4::newRotationMatrix( toOf(headPose[eye].Orientation)) * \
+    ofMatrix4x4::newTranslationMatrix( toOf(headPose[eye].Position));
+    
+    // final multiplication of everything
+    return viewAdjust * hmdView.getInverse() * baseCameraMatrix;
+}
+
 void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	
 	if(bUseBackground){
@@ -329,23 +349,11 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
-	
-	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, true) );
-	ofLoadMatrix( projectionMatrix );
-
+	ofLoadMatrix( getProjectionMatrix(eye) );
+    
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
-    
-    ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix();
-    
-    ofMatrix4x4 viewAdjust;
-    viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
-    
-    ofMatrix4x4 hmdView =   ofMatrix4x4::newRotationMatrix( toOf(headPose[eye].Orientation)) * \
-                            ofMatrix4x4::newTranslationMatrix( toOf(headPose[eye].Position));
-
-    // final multiplication of everything
-    ofLoadMatrix( viewAdjust  * (hmdView * baseCameraMatrix).getInverse() );
+    ofLoadMatrix( getViewMatrix(eye) );
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
@@ -458,6 +466,9 @@ void ofxOculusDK2::beginLeftEye(){
 	ofPushView();
 	ofPushMatrix();
 
+//    baseCamera->begin();
+//    baseCamera->end();
+    
 	setupEyeParams(ovrEye_Left);
     
 }
@@ -548,8 +559,8 @@ ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrie
         
         ofMatrix4x4 modelViewMatrix = orientationMatrix;
         modelViewMatrix = modelViewMatrix * baseCamera->getGlobalTransformMatrix();
-        baseCamera->begin();
-        baseCamera->end();
+//        baseCamera->begin();
+//        baseCamera->end();
         modelViewMatrix = modelViewMatrix.getInverse();
     
         ofVec3f cameraXYZ = worldPosition * (modelViewMatrix * projectionMatrixLeft);
