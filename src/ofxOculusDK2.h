@@ -16,6 +16,7 @@
 using namespace OVR;
 
 #include "OVR_CAPI.h"
+#include "OVR_CAPI_GL.h"
 
 #include "Util/Util_Render_Stereo.h"
 using namespace OVR::Util::Render;

@@ -10,6 +10,8 @@
 
 #include "ofxOculusDK2.h"
 
+#define OCULUS_SDK_RENDERING 1
+
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
 	uniform vec2 EyeToSourceUVScale;
@@ -238,6 +240,36 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     eyeRenderViewport[1].Pos  = Vector2i((renderTargetSize.w + 1) / 2, 0);
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
+#ifdef OCULUS_SDK_RENDERING
+
+	// Configure OpenGL.
+	ovrGLConfig cfg;
+	cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
+	cfg.OGL.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
+	cfg.OGL.Header.Multisample = 1;
+	cfg.OGL.Window = ofGetWin32Window();
+	//cfg.OGL.DC = ofGetWGLContext();
+	ovrBool resultConfig = ovrHmd_ConfigureRendering(hmd, &cfg.Config, distortionCaps, eyeFov, eyeRenderDesc);
+
+	if (resultConfig) {
+		// Direct rendering from a window handle to the Hmd.
+		// Not required if ovrHmdCap_ExtendDesktop flag is set.
+		ovrBool resultAttach = ovrHmd_AttachToWindow(hmd, ofGetWin32Window(), NULL, NULL);
+
+		if (resultAttach) {
+			bSetup = true;
+		}
+		else {
+			ofLogError("ofxOculusDK2::setup") << "ovrHmd_AttachToWindow failed!"; 
+			bSetup = false;
+		}
+	}
+	else {
+		ofLogError("ofxOculusDK2::setup") << "ovrHmd_ConfigureRendering failed!";
+		bSetup = false;
+	}
+	
+#else
 	//Generate distortion mesh for each eye
     
 	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
@@ -285,12 +317,16 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 
 		ovrHmd_DestroyDistortionMesh( &meshData );
 	}
-    
-    bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
 	reloadShader();
+
 	bSetup = true;
-	return true;
+
+#endif
+
+	bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
+
+	return bSetup;
 }
 
 bool ofxOculusDK2::isSetup(){
