@@ -5,16 +5,16 @@ Content     :   Client for service interface
 Created     :   June 12, 2014
 Authors     :   Michael Antonov, Kevin Jenkins, Chris Taylor
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,6 +27,9 @@ limitations under the License.
 #include "Service_NetClient.h"
 #include "../Net/OVR_MessageIDTypes.h"
 
+#if defined (OVR_OS_MAC) || defined(OVR_OS_LINUX)
+#define GetCurrentProcessId getpid
+#endif
 OVR_DEFINE_SINGLETON(OVR::Service::NetClient);
 
 namespace OVR { namespace Service {
@@ -37,7 +40,9 @@ using namespace OVR::Net;
 //// NetClient
 
 NetClient::NetClient() :
-    LatencyTesterAvailable(false)
+    LatencyTesterAvailable(false),
+    HMDCount(0),
+    EdgeTriggeredHMDCount(false)
 {
     GetSession()->AddSessionListener(this);
 
@@ -46,6 +51,7 @@ NetClient::NetClient() :
 
     Start();
 
+	// Must be at end of function
     PushDestroyCallbacks();
 }
 
@@ -69,10 +75,14 @@ int NetClient::Run()
 
     while (!Terminated)
     {
-        if (GetSession()->GetActiveSocketsCount()==0)
-            Thread::MSleep(10);
+        // Note: There is no watchdog here because the watchdog is part of the private code
 
         GetSession()->Poll(false);
+
+        if (GetSession()->GetActiveSocketsCount() == 0)
+        {
+            Thread::MSleep(10);
+        }
     }
 
     return 0;
@@ -82,7 +92,6 @@ void NetClient::OnReceive(ReceivePayload* pPayload, ListenerReceiveResult* lrrOu
 {
     OVR_UNUSED(lrrOut);
     OVR_UNUSED(pPayload);
-
 }
 
 void NetClient::OnDisconnected(Connection* conn)
@@ -90,13 +99,8 @@ void NetClient::OnDisconnected(Connection* conn)
     OVR_UNUSED(conn);
 
     OVR_DEBUG_LOG(("[NetClient] Disconnected"));
-}
 
-void NetClient::OnConnectionAttemptFailed(Net::Connection* conn)
-{
-    OVR_UNUSED(conn);
-
-    OVR_DEBUG_LOG(("[NetClient] OnConnectionAttemptFailed"));
+    EdgeTriggeredHMDCount = false;
 }
 
 void NetClient::OnConnected(Connection* conn)
@@ -106,9 +110,11 @@ void NetClient::OnConnected(Connection* conn)
     OVR_DEBUG_LOG(("[NetClient] Connected to a server running version %d.%d.%d (my version=%d.%d.%d)",
         conn->RemoteMajorVersion, conn->RemoteMinorVersion, conn->RemotePatchVersion,
         RPCVersion_Major, RPCVersion_Minor, RPCVersion_Patch));
+
+    EdgeTriggeredHMDCount = false;
 }
 
-bool NetClient::Connect()
+bool NetClient::Connect(bool blocking)
 {
     // Set up bind parameters
 	OVR::Net::BerkleyBindParameters bbp;
@@ -118,7 +124,12 @@ bool NetClient::Connect()
 	sa.Set("::1", VRServicePort, SOCK_STREAM);
 
     // Attempt to connect
-    return GetSession()->ConnectPTCP(&bbp, &sa, true) == Net::SessionResult_OK;
+    OVR::Net::SessionResult result = GetSession()->ConnectPTCP(&bbp, &sa, blocking);
+
+    // Already connected counts as success too
+    return result == Net::SessionResult_OK ||
+           result == Net::SessionResult_AlreadyConnected ||
+           result == Net::SessionResult_ConnectInProgress;
 }
 
 void NetClient::Disconnect()
@@ -126,7 +137,7 @@ void NetClient::Disconnect()
     GetSession()->Shutdown();
 }
 
-bool NetClient::IsConnected(bool attemptReconnect)
+bool NetClient::IsConnected(bool attemptReconnect, bool blockOnReconnect)
 {
     // If it was able to connect,
     if (GetSession()->GetConnectionCount() > 0)
@@ -136,7 +147,7 @@ bool NetClient::IsConnected(bool attemptReconnect)
     else if (attemptReconnect)
     {
         // Attempt to connect here
-        Connect();
+        Connect(blockOnReconnect);
 
         // If it connected,
         if (GetSession()->GetConnectionCount() > 0)
@@ -176,8 +187,10 @@ bool NetClient::GetRemoteProtocolVersion(int& major, int& minor, int& patch)
 
 const char* NetClient::GetStringValue(VirtualHmdId hmd, const char* key, const char* default_val)
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, true))
+    {
         return "";
+    }
 
     ProfileGetValue1_Str = default_val;
 
@@ -187,7 +200,7 @@ const char* NetClient::GetStringValue(VirtualHmdId hmd, const char* key, const c
     bsOut.Write(default_val);
     if (!GetRPC1()->CallBlocking("GetStringValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
     {
-        OVR_ASSERT(false);
+		return "";
     }
     if (!returnData.Read(ProfileGetValue1_Str))
     {
@@ -197,8 +210,10 @@ const char* NetClient::GetStringValue(VirtualHmdId hmd, const char* key, const c
 }
 bool NetClient::GetBoolValue(VirtualHmdId hmd, const char* key, bool default_val)
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, true))
+    {
         return default_val;
+    }
 
     OVR::Net::BitStream bsOut, returnData;
     bsOut.Write(hmd);
@@ -206,7 +221,7 @@ bool NetClient::GetBoolValue(VirtualHmdId hmd, const char* key, bool default_val
     bsOut.Write(default_val);
     if (!GetRPC1()->CallBlocking("GetBoolValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
     {
-        OVR_ASSERT(false);
+		return default_val;
     }
     uint8_t out = 0;
     if (!returnData.Read(out))
@@ -217,8 +232,10 @@ bool NetClient::GetBoolValue(VirtualHmdId hmd, const char* key, bool default_val
 }
 int NetClient::GetIntValue(VirtualHmdId hmd, const char* key, int default_val)
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, true))
+    {
         return default_val;
+    }
 
     OVR::Net::BitStream bsOut, returnData;
     bsOut.Write(hmd);
@@ -226,7 +243,7 @@ int NetClient::GetIntValue(VirtualHmdId hmd, const char* key, int default_val)
     bsOut.Write(default_val);
     if (!GetRPC1()->CallBlocking("GetIntValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
     {
-        OVR_ASSERT(false);
+		return default_val;
     }
     int32_t out = (int32_t)default_val;
     if (!returnData.Read(out))
@@ -237,8 +254,10 @@ int NetClient::GetIntValue(VirtualHmdId hmd, const char* key, int default_val)
 }
 double NetClient::GetNumberValue(VirtualHmdId hmd, const char* key, double default_val)
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, true))
+    {
         return default_val;
+    }
 
     OVR::Net::BitStream bsOut, returnData;
     bsOut.Write(hmd);
@@ -246,7 +265,7 @@ double NetClient::GetNumberValue(VirtualHmdId hmd, const char* key, double defau
     bsOut.Write(default_val);
     if (!GetRPC1()->CallBlocking("GetNumberValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
     {
-        OVR_ASSERT(false);
+		return default_val;
     }
     double out = 0.;
     returnData.Read(out);
@@ -254,8 +273,10 @@ double NetClient::GetNumberValue(VirtualHmdId hmd, const char* key, double defau
 }
 int NetClient::GetNumberValues(VirtualHmdId hmd, const char* key, double* values, int num_vals)
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, true))
+    {
         return 0;
+    }
 
     OVR::Net::BitStream bsOut, returnData;
     bsOut.Write(hmd);
@@ -266,7 +287,7 @@ int NetClient::GetNumberValues(VirtualHmdId hmd, const char* key, double* values
 
     if (!GetRPC1()->CallBlocking("GetNumberValues_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
     {
-        OVR_ASSERT(false);
+		return 0;
     }
 
     int32_t out = 0;
@@ -294,10 +315,13 @@ int NetClient::GetNumberValues(VirtualHmdId hmd, const char* key, double* values
 
     return out;
 }
-void NetClient::SetStringValue(VirtualHmdId hmd, const char* key, const char* val)
+
+bool NetClient::SetStringValue(VirtualHmdId hmd, const char* key, const char* val)
 {
-    if (!IsConnected(true))
-        return;
+    if (!IsConnected(true, true))
+    {
+        return false;
+    }
 
     OVR::Net::BitStream bsOut;
     bsOut.Write(hmd);
@@ -307,13 +331,18 @@ void NetClient::SetStringValue(VirtualHmdId hmd, const char* key, const char* va
 
     if (!GetRPC1()->Signal("SetStringValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
     {
-        OVR_ASSERT(false);
+        return false;
     }
+
+    return true;
 }
-void NetClient::SetBoolValue(VirtualHmdId hmd, const char* key, bool val)
+
+bool NetClient::SetBoolValue(VirtualHmdId hmd, const char* key, bool val)
 {
-    if (!IsConnected(true))
-        return;
+    if (!IsConnected(true, true))
+    {
+        return false;
+    }
 
     OVR::Net::BitStream bsOut;
     bsOut.Write(hmd);
@@ -324,13 +353,18 @@ void NetClient::SetBoolValue(VirtualHmdId hmd, const char* key, bool val)
 
     if (!GetRPC1()->Signal("SetBoolValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
     {
-        OVR_ASSERT(false);
+        return false;
     }
+
+    return true;
 }
-void NetClient::SetIntValue(VirtualHmdId hmd, const char* key, int val)
+
+bool NetClient::SetIntValue(VirtualHmdId hmd, const char* key, int val)
 {
-    if (!IsConnected(true))
-        return;
+    if (!IsConnected(true, true))
+    {
+        return false;
+    }
 
     OVR::Net::BitStream bsOut;
     bsOut.Write(hmd);
@@ -341,13 +375,18 @@ void NetClient::SetIntValue(VirtualHmdId hmd, const char* key, int val)
 
     if (!GetRPC1()->Signal("SetIntValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
     {
-        OVR_ASSERT(false);
+        return false;
     }
+
+    return true;
 }
-void NetClient::SetNumberValue(VirtualHmdId hmd, const char* key, double val)
+
+bool NetClient::SetNumberValue(VirtualHmdId hmd, const char* key, double val)
 {
-    if (!IsConnected(true))
-        return;
+    if (!IsConnected(true, true))
+    {
+        return false;
+    }
 
     OVR::Net::BitStream bsOut;
     bsOut.Write(hmd);
@@ -357,14 +396,17 @@ void NetClient::SetNumberValue(VirtualHmdId hmd, const char* key, double val)
 
     if (!GetRPC1()->Signal("SetNumberValue_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
     {
-        OVR_ASSERT(false);
+        return false;
     }
+
+    return true;
 }
-void NetClient::SetNumberValues(VirtualHmdId hmd, const char* key, const double* vals, int num_vals)
+
+bool NetClient::SetNumberValues(VirtualHmdId hmd, const char* key, const double* vals, int num_vals)
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, true))
     {
-        return;
+        return false;
     }
 
     OVR::Net::BitStream bsOut;
@@ -381,22 +423,32 @@ void NetClient::SetNumberValues(VirtualHmdId hmd, const char* key, const double*
 
     if (!GetRPC1()->Signal("SetNumberValues_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
     {
-        OVR_ASSERT(false);
+        return false;
     }
+
+    return true;
 }
 
 int NetClient::Hmd_Detect()
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, false))
     {
         return 0;
     }
+
+    // If using edge-triggered HMD counting,
+    if (EdgeTriggeredHMDCount)
+    {
+        // Return the last update from the server
+        return HMDCount;
+    }
+
+    // Otherwise: We need to ask the first time
 
 	OVR::Net::BitStream bsOut, returnData;
 
 	if (!GetRPC1()->CallBlocking("Hmd_Detect_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
 	{
-		OVR_ASSERT(false);
 		return 0;
 	}
 
@@ -405,12 +457,14 @@ int NetClient::Hmd_Detect()
     {
         OVR_ASSERT(false);
     }
+    HMDCount = out;
+    EdgeTriggeredHMDCount = true;
 	return out;
 }
 
 bool NetClient::Hmd_Create(int index, HMDNetworkInfo* netInfo)
 {
-    if (!IsConnected(true))
+    if (!IsConnected(true, true))
     {
         return false;
     }
@@ -420,55 +474,133 @@ bool NetClient::Hmd_Create(int index, HMDNetworkInfo* netInfo)
     int32_t w = (int32_t)index;
 	bsOut.Write(w);
 
-#ifdef OVR_OS_WIN32
     // Need the Pid for driver mode
-    DWORD pid = GetCurrentProcessId();
+    pid_t pid = GetCurrentProcessId();
     bsOut.Write(pid);
-#endif
 
 	if (!GetRPC1()->CallBlocking("Hmd_Create_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
 	{
-		OVR_ASSERT(false);
 		return false;
 	}
 
 	return netInfo->Deserialize(&returnData);
 }
 
-void NetClient::Hmd_AttachToWindow(VirtualHmdId hmd, void* hWindow)
+bool NetClient::GetDriverMode(bool& driverInstalled, bool& compatMode, bool& hideDK1Mode)
 {
-    if (!IsConnected())
-        return;
+    if (!IsConnected(true, true))
+    {
+        return false;
+    }
+
+    OVR::Net::BitStream bsOut, returnData;
+
+    bsOut.Write(InvalidVirtualHmdId);
+
+    if (!GetRPC1()->CallBlocking("GetDriverMode_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
+    {
+        return false;
+    }
+
+    int32_t w_driverInstalled = 0;
+    int32_t w_compatMode = 0;
+    int32_t w_hideDK1Mode = 0;
+    returnData.Read(w_driverInstalled);
+    returnData.Read(w_compatMode);
+    if (!returnData.Read(w_hideDK1Mode))
+    {
+        return false;
+    }
+
+    driverInstalled = w_driverInstalled != 0;
+    compatMode = w_compatMode != 0;
+    hideDK1Mode = w_hideDK1Mode != 0;
+    return true;
+}
+
+bool NetClient::SetDriverMode(bool compatMode, bool hideDK1Mode)
+{
+    if (!IsConnected(true, true))
+    {
+        return false;
+    }
+
+    OVR::Net::BitStream bsOut, returnData;
+
+    bsOut.Write(InvalidVirtualHmdId);
+
+    int32_t w_compatMode, w_hideDK1Mode;
+    w_compatMode = compatMode ? 1 : 0;
+    w_hideDK1Mode = hideDK1Mode ? 1 : 0;
+    bsOut.Write(w_compatMode);
+    bsOut.Write(w_hideDK1Mode);
+
+    if (!GetRPC1()->CallBlocking("SetDriverMode_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
+    {
+        return false;
+    }
+
+    int32_t out = 0;
+    if (!returnData.Read(out))
+    {
+        OVR_ASSERT(false);
+        return false;
+    }
+
+    return out != 0;
+}
+
+bool NetClient::Hmd_AttachToWindow(VirtualHmdId hmd, void* hWindow)
+{
+    if (!IsConnected(false, false))
+    {
+        return false;
+    }
 
     OVR::Net::BitStream bsOut;
     bsOut.Write(hmd);
 
+    #ifdef OVR_OS_LINUX
+    if (hWindow == NULL)
+    {
+        return false;
+    }
+    unsigned long hWinWord = *(unsigned long *)hWindow;
+    #else
     UInt64 hWinWord = (UPInt)hWindow;
+    #endif
     bsOut.Write(hWinWord);
 
     if (!GetRPC1()->CallBlocking("Hmd_AttachToWindow_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
     {
-        OVR_ASSERT(false);
+        return false;
     }
+
+    return true;
 }
 
 void NetClient::Hmd_Release(VirtualHmdId hmd)
 {
-	if (!IsConnected())
-		return;
+    if (!IsConnected(false, false))
+    {
+        return;
+    }
 
 	OVR::Net::BitStream bsOut;
 	bsOut.Write(hmd);
-	if (!GetRPC1()->CallBlocking("Hmd_Release_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
-	{
-		OVR_ASSERT(false);
-	}
+	bool result = GetRPC1()->CallBlocking("Hmd_Release_1", &bsOut, GetSession()->GetConnectionAtIndex(0));
+    OVR_ASSERT_AND_UNUSED(result, result);
+}
+
+void NetClient::SetLastError(String str)
+{
+    Hmd_GetLastError_Str = str;
 }
 
 // Last string is cached locally.
 const char* NetClient::Hmd_GetLastError(VirtualHmdId hmd)
 {
-    if (!IsConnected())
+    if (hmd == InvalidVirtualHmdId || !IsConnected(false, false))
     {
         return Hmd_GetLastError_Str.ToCStr();
     }
@@ -477,7 +609,6 @@ const char* NetClient::Hmd_GetLastError(VirtualHmdId hmd)
 	bsOut.Write(hmd);
 	if (!GetRPC1()->CallBlocking("Hmd_GetLastError_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
 	{
-		OVR_ASSERT(false);
 		return Hmd_GetLastError_Str.ToCStr();
 	}
     if (!bsOut.Read(Hmd_GetLastError_Str))
@@ -492,7 +623,7 @@ const char* NetClient::Hmd_GetLastError(VirtualHmdId hmd)
 // The actual descriptor is a par
 bool NetClient::Hmd_GetHmdInfo(VirtualHmdId hmd, HMDInfo* hmdInfo)
 {
-    if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return false;
     }
@@ -501,7 +632,6 @@ bool NetClient::Hmd_GetHmdInfo(VirtualHmdId hmd, HMDInfo* hmdInfo)
 	bsOut.Write(hmd);
 	if (!GetRPC1()->CallBlocking("Hmd_GetHmdInfo_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
 	{
-		OVR_ASSERT(false);
 		return false;
 	}
 
@@ -512,7 +642,7 @@ bool NetClient::Hmd_GetHmdInfo(VirtualHmdId hmd, HMDInfo* hmdInfo)
 //-------------------------------------------------------------------------------------
 unsigned int NetClient::Hmd_GetEnabledCaps(VirtualHmdId hmd)
 {
-	if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return 0;
     }
@@ -521,7 +651,6 @@ unsigned int NetClient::Hmd_GetEnabledCaps(VirtualHmdId hmd)
 	bsOut.Write(hmd);
 	if (!GetRPC1()->CallBlocking("Hmd_GetEnabledCaps_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
 	{
-		OVR_ASSERT(false);
 		return 0;
 	}
 
@@ -536,7 +665,7 @@ unsigned int NetClient::Hmd_GetEnabledCaps(VirtualHmdId hmd)
 // Returns new caps after modification
 unsigned int NetClient::Hmd_SetEnabledCaps(VirtualHmdId hmd, unsigned int hmdCaps)
 {
-	if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return 0;
     }
@@ -549,7 +678,6 @@ unsigned int NetClient::Hmd_SetEnabledCaps(VirtualHmdId hmd, unsigned int hmdCap
 
 	if (!GetRPC1()->CallBlocking("Hmd_SetEnabledCaps_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
 	{
-		OVR_ASSERT(false);
 		return 0;
 	}
 
@@ -567,7 +695,7 @@ unsigned int NetClient::Hmd_SetEnabledCaps(VirtualHmdId hmd, unsigned int hmdCap
 
 bool NetClient::Hmd_ConfigureTracking(VirtualHmdId hmd, unsigned supportedCaps, unsigned requiredCaps)
 {
-	if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return false;
     }
@@ -582,7 +710,6 @@ bool NetClient::Hmd_ConfigureTracking(VirtualHmdId hmd, unsigned supportedCaps, 
 
 	if (!GetRPC1()->CallBlocking("Hmd_ConfigureTracking_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
 	{
-		OVR_ASSERT(false);
 		return false;
 	}
 
@@ -598,7 +725,7 @@ bool NetClient::Hmd_ConfigureTracking(VirtualHmdId hmd, unsigned supportedCaps, 
 
 void NetClient::Hmd_ResetTracking(VirtualHmdId hmd)
 {
-	if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return;
     }
@@ -607,14 +734,13 @@ void NetClient::Hmd_ResetTracking(VirtualHmdId hmd)
 	bsOut.Write(hmd);
 	if (!GetRPC1()->CallBlocking("Hmd_ResetTracking_1", &bsOut, GetSession()->GetConnectionAtIndex(0)))
 	{
-		OVR_ASSERT(false);
 		return;
 	}
 }
 
 bool NetClient::LatencyUtil_ProcessInputs(double startTestSeconds, unsigned char rgbColorOut[3])
 {
-    if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return false;
     }
@@ -628,7 +754,6 @@ bool NetClient::LatencyUtil_ProcessInputs(double startTestSeconds, unsigned char
     bsOut.Write(startTestSeconds);
     if (!GetRPC1()->CallBlocking("LatencyUtil_ProcessInputs_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
     {
-        OVR_ASSERT(false);
         return false;
     }
 
@@ -648,7 +773,7 @@ bool NetClient::LatencyUtil_ProcessInputs(double startTestSeconds, unsigned char
 
 const char* NetClient::LatencyUtil_GetResultsString()
 {
-    if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return NULL;
     }
@@ -656,7 +781,6 @@ const char* NetClient::LatencyUtil_GetResultsString()
     OVR::Net::BitStream bsOut, returnData;
     if (!GetRPC1()->CallBlocking("LatencyUtil_GetResultsString_1", &bsOut, GetSession()->GetConnectionAtIndex(0), &returnData))
     {
-        OVR_ASSERT(false);
         return NULL;
     }
 
@@ -670,7 +794,7 @@ const char* NetClient::LatencyUtil_GetResultsString()
 
 bool NetClient::ShutdownServer()
 {
-    if (!IsConnected())
+    if (!IsConnected(false, false))
     {
         return false;
     }
@@ -692,7 +816,8 @@ void NetClient::registerRPC()
     // Register RPC functions:
     RPC_REGISTER_SLOT(InitialServerStateScope, InitialServerState_1);
     RPC_REGISTER_SLOT(LatencyTesterAvailableScope, LatencyTesterAvailable_1);
-
+    RPC_REGISTER_SLOT(DefaultLogOutputScope, DefaultLogOutput_1);
+    RPC_REGISTER_SLOT(HMDCountUpdateScope, HMDCountUpdate_1);
 }
 
 void NetClient::InitialServerState_1(BitStream* userData, ReceivePayload* pPayload)
@@ -714,6 +839,38 @@ void NetClient::LatencyTesterAvailable_1(BitStream* userData, ReceivePayload* pP
     LatencyTesterAvailable = (b != 0);
 }
 
+void NetClient::DefaultLogOutput_1(BitStream* userData, ReceivePayload* pPayload)
+{
+    OVR_UNUSED(pPayload);
+
+    String formattedText;
+    LogMessageType messageType = Log_Text; // Will normally be overwritten below.
+    userData->Read(messageType);
+    if (userData->Read(formattedText))
+    {
+        if (OVR::Log::GetGlobalLog())
+        {
+            OVR::String logStr = "[From Service] ";
+            logStr.AppendString(formattedText);
+            OVR::Log::GetGlobalLog()->LogMessage(messageType, "%s", logStr.ToCStr());
+        }
+    }
+}
+
+void NetClient::HMDCountUpdate_1(BitStream* userData, ReceivePayload* pPayload)
+{
+    OVR_UNUSED(pPayload);
+
+    int32_t hmdCount = 0;
+    if (!userData->Read(hmdCount))
+    {
+        OVR_ASSERT(false);
+        return;
+    }
+
+    HMDCount = hmdCount;
+    EdgeTriggeredHMDCount = true;
+}
 
 
 }} // namespace OVR::Service

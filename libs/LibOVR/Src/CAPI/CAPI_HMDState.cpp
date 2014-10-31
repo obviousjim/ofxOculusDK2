@@ -5,16 +5,16 @@ Content     :   State associated with a single HMD
 Created     :   January 24, 2014
 Authors     :   Michael Antonov
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,31 +42,70 @@ HMDState::HMDState(const OVR::Service::HMDNetworkInfo& netInfo,
 				   const OVR::HMDInfo& hmdInfo,
 				   Profile* profile,
 				   Service::NetClient* client) :
-    pClient(client),
     pProfile(profile),
     pHmdDesc(0),
     pWindow(0),
-    NetInfo(netInfo),
+    pClient(client),
     NetId(netInfo.NetId),
+    NetInfo(netInfo),
     OurHMDInfo(hmdInfo),
+    pLastError(NULL),
     EnabledHmdCaps(0),
-    LastFrameTimeSeconds(0.f),
-    LastGetFrameTimeSeconds(0.),
+    EnabledServiceHmdCaps(0),
+    SharedStateReader(),
+    TheSensorStateReader(),
+    TheLatencyTestStateReader(),
     LatencyTestActive(false),
-    LatencyTest2Active(false)
+  //LatencyTestDrawColor(),
+    LatencyTest2Active(false),
+  //LatencyTest2DrawColor(),
+    TimeManager(true),
+    RenderState(),
+    pRenderer(),
+    pHSWDisplay(),
+    LastFrameTimeSeconds(0.),
+    LastGetFrameTimeSeconds(0.),
+  //LastGetStringValue(),
+    RenderingConfigured(false),
+    BeginFrameCalled(false),
+    BeginFrameThreadId(),
+    RenderAPIThreadChecker(),
+    BeginFrameTimingCalled(false)
 {
     sharedInit(profile);
 }
 
+
 HMDState::HMDState(const OVR::HMDInfo& hmdInfo, Profile* profile) :
-    pClient(0),
-    pHmdDesc(0),
-    NetId(InvalidVirtualHmdId),
     pProfile(profile),
+    pHmdDesc(0),
+    pWindow(0),
+    pClient(0),
+    NetId(InvalidVirtualHmdId),
+    NetInfo(),
     OurHMDInfo(hmdInfo),
+    pLastError(NULL),
     EnabledHmdCaps(0),
+    EnabledServiceHmdCaps(0),
+    SharedStateReader(),
+    TheSensorStateReader(),
+    TheLatencyTestStateReader(),
+    LatencyTestActive(false),
+  //LatencyTestDrawColor(),
+    LatencyTest2Active(false),
+  //LatencyTest2DrawColor(),
+    TimeManager(true),
+    RenderState(),
+    pRenderer(),
+    pHSWDisplay(),
     LastFrameTimeSeconds(0.),
-    LastGetFrameTimeSeconds(0.)
+    LastGetFrameTimeSeconds(0.),
+  //LastGetStringValue(),
+    RenderingConfigured(false),
+    BeginFrameCalled(false),
+    BeginFrameThreadId(),
+    RenderAPIThreadChecker(),
+    BeginFrameTimingCalled(false)
 {
     sharedInit(profile);
 }
@@ -82,7 +121,10 @@ HMDState::~HMDState()
     ConfigureRendering(0,0,0,0);
 
     if (pHmdDesc)
-        delete pHmdDesc;
+    {
+        OVR_FREE(pHmdDesc);
+        pHmdDesc = NULL;
+    }
 }
 
 void HMDState::sharedInit(Profile* profile)
@@ -96,7 +138,7 @@ void HMDState::sharedInit(Profile* profile)
     UpdateRenderProfile(profile);
 
     OVR_ASSERT(!pHmdDesc);
-    pHmdDesc         = new ovrHmdDesc;
+    pHmdDesc         = (ovrHmdDesc*)OVR_ALLOC(sizeof(ovrHmdDesc));
     *pHmdDesc        = RenderState.GetDesc();
     pHmdDesc->Handle = this;
 
@@ -122,7 +164,10 @@ void HMDState::sharedInit(Profile* profile)
 
     // Construct the HSWDisplay. We will later reconstruct it with a specific ovrRenderAPI type if the application starts using SDK-based rendering.
     if(!pHSWDisplay)
+    {
         pHSWDisplay = *OVR::CAPI::HSWDisplay::Factory(ovrRenderAPI_None, pHmdDesc, RenderState);
+        pHSWDisplay->Enable(pProfile->GetBoolValue("HSW", true));
+    }
 }
 
 static Vector3f GetNeckModelFromProfile(Profile* profile)
@@ -185,7 +230,20 @@ void HMDState::UpdateRenderProfile(Profile* profile)
             neckModel.z
         };
         pClient->SetNumberValues(GetNetId(), "NeckModelVector3f", neckModelArray, 3);
+
+        double camerastate[7];
+        if (profile->GetDoubleValues(OVR_KEY_CAMERA_POSITION, camerastate, 7) == 0)
+        {
+            //there is no value, so we load the default
+            for (int i = 0; i < 7; i++) camerastate[i] = 0;
+            camerastate[3] = 1;//no offset. by default, give the quaternion w component value 1
+        }
+        else
+
+        TheSensorStateReader.setCenteredFromWorld(OVR::Posed::FromArray(camerastate));
     }
+
+
 }
 
 HMDState* HMDState::CreateHMDState(NetClient* client, const HMDNetworkInfo& netInfo)
@@ -264,7 +322,7 @@ ovrTrackingState HMDState::PredictedTrackingState(double absTime)
     TheSensorStateReader.GetSensorStateAtTime(absTime, ss);
 
     // Zero out the status flags
-    if (!pClient || !pClient->IsConnected())
+    if (!pClient || !pClient->IsConnected(false, false))
     {
         ss.StatusFlags = 0;
     }
@@ -360,8 +418,12 @@ bool HMDState::getBoolValue(const char* propertyName, bool defaultVal)
 
 bool HMDState::setBoolValue(const char* propertyName, bool value)
 {
-    NetClient::GetInstance()->SetBoolValue(GetNetId(), propertyName, value);
-    return true;
+	if (NetSessionCommon::IsServiceProperty(NetSessionCommon::ESetBoolValue, propertyName))
+	{
+		return NetClient::GetInstance()->SetBoolValue(GetNetId(), propertyName, value);
+	}
+
+	return false;
 }
 
 int HMDState::getIntValue(const char* propertyName, int defaultVal)
@@ -379,8 +441,12 @@ int HMDState::getIntValue(const char* propertyName, int defaultVal)
 
 bool HMDState::setIntValue(const char* propertyName, int value)
 {
-    NetClient::GetInstance()->SetIntValue(GetNetId(), propertyName, value);
-    return true;
+	if (NetSessionCommon::IsServiceProperty(NetSessionCommon::ESetIntValue, propertyName))
+	{
+		return NetClient::GetInstance()->SetIntValue(GetNetId(), propertyName, value);
+	}
+
+	return false;
 }
 
 float HMDState::getFloatValue(const char* propertyName, float defaultVal)
@@ -411,8 +477,12 @@ float HMDState::getFloatValue(const char* propertyName, float defaultVal)
 
 bool HMDState::setFloatValue(const char* propertyName, float value)
 {
-    NetClient::GetInstance()->SetNumberValue(GetNetId(), propertyName, value);
-    return true;
+	if (NetSessionCommon::IsServiceProperty(NetSessionCommon::ESetNumberValue, propertyName))
+	{
+		return NetClient::GetInstance()->SetNumberValue(GetNetId(), propertyName, value);
+	}
+
+	return false;
 }
 
 static unsigned CopyFloatArrayWithLimit(float dest[], unsigned destSize,
@@ -445,10 +515,18 @@ unsigned HMDState::getFloatArray(const char* propertyName, float values[], unsig
                 return 0;
             }
 
-            float data[3];            
-            TimeManager.GetLatencyTimings(data);
-            
-            return CopyFloatArrayWithLimit(values, arraySize, data, 3);
+            union {
+                struct X {
+                    float latencyRender, latencyTimewarp, latencyPostPresent;
+                } x;
+                float data[3];
+            } m;
+
+            static_assert(sizeof(m.x)==sizeof(m.data), "sizeof(struct X) failure");
+
+            TimeManager.GetLatencyTimings(m.x.latencyRender, m.x.latencyTimewarp, m.x.latencyPostPresent);
+
+            return CopyFloatArrayWithLimit(values, arraySize, m.data, 3);
         }
         else if (NetSessionCommon::IsServiceProperty(NetSessionCommon::EGetNumberValues, propertyName))
         {
@@ -476,8 +554,8 @@ unsigned HMDState::getFloatArray(const char* propertyName, float values[], unsig
 			//      we can return 0 in all conditions if property doesn't exist.
 		
             return pProfile->GetFloatValues(propertyName, values, arraySize);
-			}
 		}
+	}
 
 	return 0;
 }
@@ -495,17 +573,22 @@ bool HMDState::setFloatArray(const char* propertyName, float values[], unsigned 
         return true;
     }
 
-    double* da = new double[arraySize];
-    for (int i = 0; i < (int)arraySize; ++i)
-    {
-        da[i] = values[i];
-    }
+	if (NetSessionCommon::IsServiceProperty(NetSessionCommon::ESetNumberValues, propertyName))
+	{
+		double* da = new double[arraySize];
+		for (int i = 0; i < (int)arraySize; ++i)
+		{
+			da[i] = values[i];
+		}
 
-    NetClient::GetInstance()->SetNumberValues(GetNetId(), propertyName, da, arraySize);
+		bool result = NetClient::GetInstance()->SetNumberValues(GetNetId(), propertyName, da, arraySize);
 
-    delete[] da;
+		delete[] da;
 
-    return true;
+		return result;
+	}
+
+	return false;
 }
 
 const char* HMDState::getString(const char* propertyName, const char* defaultVal)
@@ -529,8 +612,12 @@ const char* HMDState::getString(const char* propertyName, const char* defaultVal
 
 bool HMDState::setString(const char* propertyName, const char* value)
 {
-    NetClient::GetInstance()->SetStringValue(GetNetId(), propertyName, value);
-    return true;
+	if (NetSessionCommon::IsServiceProperty(NetSessionCommon::ESetStringValue, propertyName))
+	{
+		return NetClient::GetInstance()->SetStringValue(GetNetId(), propertyName, value);
+	}
+
+	return false;
 }
 
 
@@ -539,93 +626,7 @@ bool HMDState::setString(const char* propertyName, const char* value)
 
 bool HMDState::ProcessLatencyTest(unsigned char rgbColorOut[3])
 {    
-    bool result = false;
-
-    result = NetClient::GetInstance()->LatencyUtil_ProcessInputs(Timer::GetSeconds(), rgbColorOut);
-
-#if 0 //def ENABLE_LATENCY_TESTER
-    // Check create.
-    if (pLatencyTester)
-    {
-        if (pLatencyTester->IsConnected())
-        {
-            Color colorToDisplay;
-
-            LatencyUtil.ProcessInputs();
-            result = LatencyUtil.DisplayScreenColor(colorToDisplay);
-            rgbColorOut[0] = colorToDisplay.R;
-            rgbColorOut[1] = colorToDisplay.G;
-            rgbColorOut[2] = colorToDisplay.B;
-        }
-        else
-        {
-            // Disconnect.
-            LatencyUtil.SetDevice(NULL);
-            pLatencyTester = 0;
-            LogText("LATENCY SENSOR disconnected.\n");
-        }
-    }
-    else if (AddLatencyTestCount > 0)
-    {
-        // This might have some unlikely race condition issue which could cause us to miss a device...
-        AddLatencyTestCount = 0;
-
-        pLatencyTester = *GlobalState::pInstance->GetManager()->EnumerateDevices<LatencyTestDevice>().CreateDevice();
-        if (pLatencyTester)
-        {
-            LatencyUtil.SetDevice(pLatencyTester);
-            LogText("LATENCY TESTER connected\n");
-        }        
-    }
-#endif
-    
-    return result;
-}
-
-void HMDState::ProcessLatencyTest2(unsigned char rgbColorOut[3], double startTime)
-{
-    OVR_UNUSED2(rgbColorOut, startTime);
-    /*
-    // Check create.
-    if (!(EnabledHmdCaps & ovrHmdCap_LatencyTest))
-        return;
-
-    if (pLatencyTesterDisplay && !LatencyUtil2.HasDisplayDevice())
-    {
-        if (!pLatencyTesterDisplay->IsConnected())
-        {
-            LatencyUtil2.SetDisplayDevice(NULL);
-        }
-    }
-    else if (AddLatencyTestDisplayCount > 0)
-    {
-        // This might have some unlikely race condition issue
-        // which could cause us to miss a device...
-        AddLatencyTestDisplayCount = 0;
-
-        pLatencyTesterDisplay = *GlobalState::pInstance->GetManager()->
-                                 EnumerateDevices<LatencyTestDevice>().CreateDevice();
-        if (pLatencyTesterDisplay)
-        {
-            LatencyUtil2.SetDisplayDevice(pLatencyTesterDisplay);
-        }
-    }
-
-    if (LatencyUtil2.HasDevice() && pSensor && pSensor->IsConnected())
-    {
-        LatencyUtil2.BeginTest(startTime);
-
-        Color colorToDisplay;
-        LatencyTest2Active = LatencyUtil2.DisplayScreenColor(colorToDisplay);
-        rgbColorOut[0] = colorToDisplay.R;
-        rgbColorOut[1] = colorToDisplay.G;
-        rgbColorOut[2] = colorToDisplay.B;
-    }
-    else
-    {
-        LatencyTest2Active = false;
-    }
-    */
+    return NetClient::GetInstance()->LatencyUtil_ProcessInputs(Timer::GetSeconds(), rgbColorOut);
 }
 
 //-------------------------------------------------------------------------------------
@@ -693,7 +694,7 @@ bool HMDState::ConfigureRendering(ovrEyeRenderDesc eyeRenderDescOut[2],
     }
 
     if (!pRenderer ||
-        !pRenderer->Initialize(apiConfig, distortionCaps))
+        !pRenderer->Initialize(apiConfig))
     {
         RenderingConfigured = false;
         return false;
@@ -707,7 +708,10 @@ bool HMDState::ConfigureRendering(ovrEyeRenderDesc eyeRenderDescOut[2],
     }
 
     if(!pHSWDisplay) // Use * below because that for of operator= causes it to inherit the refcount the factory gave the object.
+    {
         pHSWDisplay = *OVR::CAPI::HSWDisplay::Factory(apiConfig->Header.API, pHmdDesc, RenderState);
+        pHSWDisplay->Enable(pProfile->GetBoolValue("HSW", true));
+    }
 
     if (pHSWDisplay)
         pHSWDisplay->Initialize(apiConfig); // This is potentially re-initializing it with a new config.
@@ -746,8 +750,8 @@ ovrBool ovrHmd_CreateDistortionMeshInternal( ovrHmdStruct *  hmd,
     // Not used now, but Chromatic flag or others could possibly be checked for in the future.
     OVR_UNUSED1(distortionCaps); 
    
-#if defined (OVR_OS_WIN32)
-    OVR_COMPILER_ASSERT(sizeof(DistortionMeshVertexData) == sizeof(ovrDistortionVertex));
+#if defined (OVR_CC_MSVC)
+    static_assert(sizeof(DistortionMeshVertexData) == sizeof(ovrDistortionVertex), "DistortionMeshVertexData size mismatch");
 #endif
 	
     // *** Calculate a part of "StereoParams" needed for mesh generation

@@ -5,16 +5,16 @@ Content     :   A network plugin that provides remote procedure call functionali
 Created     :   June 10, 2014
 Authors     :   Kevin Jenkins
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -58,7 +58,7 @@ RPC1::~RPC1()
 	delete blockingReturnValue;
 }
 
-void RPC1::RegisterSlot(OVR::String sharedIdentifier,  OVR::Observer<RPCSlot> *rpcSlotObserver )
+void RPC1::RegisterSlot(OVR::String sharedIdentifier,  OVR::Observer<RPCSlot>* rpcSlotObserver )
 {
 	slotHash.AddObserverToSubject(sharedIdentifier, rpcSlotObserver);
 }
@@ -77,7 +77,7 @@ void RPC1::UnregisterBlockingFunction(OVR::String uniqueID)
 	registeredBlockingFunctions.Remove(uniqueID);
 }
 
-bool RPC1::CallBlocking( OVR::String uniqueID, OVR::Net::BitStream * bitStream, Ptr<Connection> pConnection, OVR::Net::BitStream *returnData )
+bool RPC1::CallBlocking( OVR::String uniqueID, OVR::Net::BitStream* bitStream, Ptr<Connection> pConnection, OVR::Net::BitStream* returnData )
 {
     // If invalid parameters,
     if (!pConnection)
@@ -123,6 +123,10 @@ bool RPC1::CallBlocking( OVR::String uniqueID, OVR::Net::BitStream * bitStream, 
             callBlockingWait.Wait(&callBlockingMutex);
         }
     }
+	else
+	{
+		return false;
+	}
 
     if (returnData)
     {
@@ -133,7 +137,7 @@ bool RPC1::CallBlocking( OVR::String uniqueID, OVR::Net::BitStream * bitStream, 
 	return true;
 }
 
-bool RPC1::Signal(OVR::String sharedIdentifier, OVR::Net::BitStream * bitStream, Ptr<Connection> pConnection)
+bool RPC1::Signal(OVR::String sharedIdentifier, OVR::Net::BitStream* bitStream, Ptr<Connection> pConnection)
 {
 	OVR::Net::BitStream out;
 	out.Write((MessageID) OVRID_RPC1);
@@ -150,7 +154,7 @@ bool RPC1::Signal(OVR::String sharedIdentifier, OVR::Net::BitStream * bitStream,
 	int32_t bytesSent = pSession->Send(&sp);
 	return bytesSent == sp.Bytes;
 }
-void RPC1::BroadcastSignal(OVR::String sharedIdentifier, OVR::Net::BitStream * bitStream)
+void RPC1::BroadcastSignal(OVR::String sharedIdentifier, OVR::Net::BitStream* bitStream)
 {
     OVR::Net::BitStream out;
     out.Write((MessageID) OVRID_RPC1);

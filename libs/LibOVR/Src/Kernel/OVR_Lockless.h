@@ -6,16 +6,16 @@ Content     :   Lock-less classes for producer/consumer communication
 Created     :   November 9, 2013
 Authors     :   John Carmack
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -59,7 +59,7 @@ public:
         OVR_COMPILER_ASSERT(sizeof(T) <= sizeof(SlotType));
     }
 
-	T		GetState() const
+	T GetState() const
 	{
 		// Copy the state out, then retry with the alternate slot
 		// if we determine that our copy may have been partially
@@ -71,9 +71,9 @@ public:
 		{
 			// We are adding 0, only using these as atomic memory barriers, so it
 			// is ok to cast off the const, allowing GetState() to remain const.
-            end   = UpdateEnd.ExchangeAdd_Sync(0);
+            end   = UpdateEnd.Load_Acquire();
             state = Slots[ end & 1 ];
-            begin = UpdateBegin.ExchangeAdd_Sync(0);
+            begin = UpdateBegin.Load_Acquire();
 			if ( begin == end ) {
 				break;
 			}
@@ -81,7 +81,7 @@ public:
 			// The producer is potentially blocked while only having partially
 			// written the update, so copy out the other slot.
             state = Slots[ (begin & 1) ^ 1 ];
-            final = UpdateBegin.ExchangeAdd_NoSync(0);
+            final = UpdateBegin.Load_Acquire();
 			if ( final == begin ) {
 				break;
 			}
@@ -92,7 +92,7 @@ public:
 		return state;
 	}
 
-	void	SetState( T state )
+	void	SetState( const T& state )
 	{
         const int slot = UpdateBegin.ExchangeAdd_Sync(1) & 1;
         // Write to (slot ^ 1) because ExchangeAdd returns 'previous' value before add.
@@ -100,9 +100,9 @@ public:
         UpdateEnd.ExchangeAdd_Sync(1);
 	}
 
-    mutable AtomicInt<int> UpdateBegin;
-    mutable AtomicInt<int> UpdateEnd;
-    SlotType               Slots[2];
+    AtomicInt<int> UpdateBegin;
+    AtomicInt<int> UpdateEnd;
+    SlotType       Slots[2];
 };
 
 

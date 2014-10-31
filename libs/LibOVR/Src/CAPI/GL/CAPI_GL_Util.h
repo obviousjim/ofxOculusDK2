@@ -5,15 +5,18 @@ Content     :   Utility header for OpenGL
 Created     :   March 27, 2014
 Authors     :   Andrew Reisse, David Borel
 
-Copyright   :   Copyright 2012 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License");
+you may not use the Oculus VR Rift SDK except in compliance with the License,
+which is provided at the time of installation or download, or which
+otherwise accompanies this software in either electronic or hard copy form.
+
 You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+http://www.oculusvr.com/licenses/LICENSE-3.2
 
-Unless required by applicable law or agreed to in writing, software
+Unless required by applicable law or agreed to in writing, the Oculus VR SDK
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -39,6 +42,8 @@ limitations under the License.
 
 #if defined(OVR_OS_MAC)
 #define GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
+#include <CoreGraphics/CGDirectDisplay.h>
+#include <OpenGL/OpenGL.h>
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 #include <OpenGL/gl3.h>
@@ -58,6 +63,7 @@ limitations under the License.
 
 namespace OVR { namespace CAPI { namespace GL {
 
+
 // GL extension Hooks for Non-Mac.
 #if !defined(OVR_OS_MAC)
 
@@ -69,7 +75,15 @@ typedef void (__stdcall *PFNGLENABLEPROC) (GLenum);
 typedef void (__stdcall *PFNGLDISABLEPROC) (GLenum);
 typedef void (__stdcall *PFNGLGETFLOATVPROC) (GLenum, GLfloat*);
 typedef const GLubyte * (__stdcall *PFNGLGETSTRINGPROC) (GLenum);
-typedef void (__stdcall *PFNGLGETINTEGERVPROC) (GLenum, GLint*);
+typedef const GLubyte * (__stdcall *PFNGLGETSTRINGIPROC) (GLenum, GLuint);
+typedef void(__stdcall *PFNGLGETINTEGERVPROC) (GLenum, GLint*);
+typedef PROC(__stdcall *PFNWGLGETPROCADDRESSPROC) (LPCSTR);
+typedef BOOL(__stdcall *PFNWGLSHARELISTSPROC)(HGLRC hglrcShare, HGLRC hglrcSrc);
+typedef BOOL(__stdcall *PFNWGLMAKECURRENTPROC)(HDC, HGLRC);
+typedef HDC(__stdcall *PFNWGLGETCURRENTDCPROC)(void);
+typedef HGLRC(__stdcall *PFNWGLCREATECONTEXTPROC)(HDC hDC);
+typedef HGLRC(__stdcall *PFNWGLGETCURRENTCONTEXTPROC)(void);
+typedef BOOL(__stdcall *PFNWGLDELETECONTEXTPROC)(HGLRC hglrc);
 typedef void (__stdcall *PFNGLGETDOUBLEVPROC) (GLenum, GLdouble*);
 typedef PROC (__stdcall *PFNWGLGETPROCADDRESS) (LPCSTR);
 typedef void (__stdcall *PFNGLFLUSHPROC) ();
@@ -91,13 +105,16 @@ typedef void (__stdcall *PFNGLTEXPARAMETERIPROC) (GLenum target, GLenum pname, G
 typedef void (__stdcall *PFNGLVIEWPORTPROC) (GLint x, GLint y, GLsizei width, GLsizei height);
 typedef void (__stdcall *PFNGLBLENDFUNCPROC) (GLenum sfactor, GLenum dfactor);
 typedef void (__stdcall *PFNGLFRONTFACEPROC) (GLenum mode);
-typedef void (__stdcall *PFNGLFEEDBACKBUFFERPROC) (GLsizei size, GLenum type, GLfloat *buffer);
 typedef GLint (__stdcall *PFNGLRENDERMODEPROC) (GLenum mode);
 typedef void (__stdcall *PFNGLPOLYGONMODEPROC) (GLenum face, GLenum mode);
 
 extern PFNWGLGETPROCADDRESS                     wglGetProcAddress;
 extern PFNWGLGETSWAPINTERVALEXTPROC             wglGetSwapIntervalEXT;
 extern PFNWGLSWAPINTERVALEXTPROC                wglSwapIntervalEXT;
+extern PFNWGLGETCURRENTDCPROC                   wglGetCurrentDC;
+extern PFNWGLGETCURRENTCONTEXTPROC              wglGetCurrentContext;
+extern PFNWGLCREATECONTEXTPROC                  wglCreateContext;
+extern PFNWGLSHARELISTSPROC                     wglShareLists;
 
 extern PFNGLGETERRORPROC                        glGetError;
 extern PFNGLENABLEPROC                          glEnable;
@@ -138,6 +155,7 @@ extern PFNGLXSWAPINTERVALEXTPROC                glXSwapIntervalEXT;
 
 #endif // defined(OVR_OS_WIN32)
 
+extern PFNGLGETSTRINGIPROC                      glGetStringi;
 extern PFNGLGENFRAMEBUFFERSPROC                 glGenFramebuffers;
 extern PFNGLDELETEFRAMEBUFFERSPROC              glDeleteFramebuffers;
 extern PFNGLDELETESHADERPROC                    glDeleteShader;
@@ -183,7 +201,9 @@ extern PFNGLUNIFORM1FVPROC                      glUniform1fv;
 extern PFNGLGENVERTEXARRAYSPROC                 glGenVertexArrays;
 extern PFNGLDELETEVERTEXARRAYSPROC              glDeleteVertexArrays;
 extern PFNGLBINDVERTEXARRAYPROC                 glBindVertexArray;
-extern PFNGLFEEDBACKBUFFERPROC                  glFeedbackBuffer;
+extern PFNGLBLENDFUNCSEPARATEPROC               glBlendFuncSeparate;
+extern PFNGLBLITFRAMEBUFFEREXTPROC              glBlitFramebuffer;
+extern PFNGLDRAWBUFFERSPROC                     glDrawBuffers;
 
 extern void InitGLExtensions();
 
@@ -494,17 +514,33 @@ public:
 	struct Uniform
 	{
 		const char* Name;
-		VarType Type;
-		int     Offset, Size;
+		VarType     Type;
+        int         Offset;
+        int         Size;
 	};
-    const Uniform* UniformRefl;
-    size_t UniformReflSize;
 
-	ShaderBase(RenderParams* rp, ShaderStage stage) : Shader(stage), pParams(rp), UniformData(0), UniformsSize(0) {}
+    const Uniform*  UniformRefl;
+    size_t          UniformReflSize;
+
+	ShaderBase(RenderParams* rp, ShaderStage stage) :
+        Shader(stage),
+        pParams(rp),
+        UniformData(NULL),
+        UniformsSize(0),
+        UniformRefl(NULL),
+        UniformReflSize(0)
+    {
+    }
 	~ShaderBase()
 	{
-		if (UniformData)    
-			OVR_FREE(UniformData);
+        if (UniformData)
+        {
+            OVR_FREE(UniformData);
+            UniformData = NULL;
+        }
+
+        // Do not need to free UniformRefl
+        UniformRefl = NULL;
 	}
 
     void InitUniforms(const Uniform* refl, size_t reflSize);
@@ -527,6 +563,7 @@ public:
         OVR_UNUSED(size);
         success = Compile((const char*) s);
         OVR_ASSERT(success);
+        OVR_UNUSED(success);
 		InitUniforms(refl, reflSize);
     }
     ~ShaderImpl()
@@ -571,7 +608,88 @@ typedef ShaderImpl<Shader_Vertex,  GL_VERTEX_SHADER> VertexShader;
 typedef ShaderImpl<Shader_Fragment, GL_FRAGMENT_SHADER> FragmentShader;
 
 
-}}}
+//// GLVersionAndExtensions
+//
+// FIXME: CODE DUPLICATION WARNING
+// Right now we have this same code in CommonSrc and in CAPI::GL.
+// At some point we need to consolidate these, in Kernel or Util.
+// Be sure to update both locations for now!
+//
+// This class needs to be initialized at runtime with GetGLVersionAndExtensions,
+// after an OpenGL context has been created. It must be re-initialized any time
+// a new OpenGL context is created, as the new context may differ in version or
+// supported functionality.
+struct GLVersionAndExtensions
+{
+    // Version information
+    int         MajorVersion;        // Best guess at major version
+    int         MinorVersion;        // Best guess at minor version
+    int         WholeVersion;        // Equals ((MajorVersion * 100) + MinorVersion). Example usage: if(glv.WholeVersion >= 302) // If OpenGL v3.02+ ...
+    bool        IsGLES;              // Open GL ES?
+    bool        IsCoreProfile;       // Is the current OpenGL context a core profile context? Its trueness may be a false positive but will never be a false negative.
+
+    // Extension information
+    bool        SupportsVAO;         // Supports Vertex Array Objects?
+    bool        SupportsDrawBuffers; // Supports Draw Buffers?
+    const char* Extensions;          // Other extensions string (will not be null)
+
+    GLVersionAndExtensions()
+      : MajorVersion(0),
+        MinorVersion(0),
+        WholeVersion(0),
+        IsGLES(false),
+        IsCoreProfile(false),
+        SupportsVAO(false),
+        SupportsDrawBuffers(false),
+        Extensions("")
+    {
+    }
+    
+    bool HasGLExtension(const char* searchKey) const;
+    
+protected:
+    friend void GetGLVersionAndExtensions(GLVersionAndExtensions& versionInfo);
+    
+    void ParseGLVersion();
+    void ParseGLExtensions();
+};
+
+void GetGLVersionAndExtensions(GLVersionAndExtensions& versionInfo);
+
+class Context
+{
+    bool                initialized;
+    bool                ownsContext;
+    int                 incarnation;
+#if defined(OVR_OS_WIN32)
+    HDC                 hdc;
+    HGLRC               systemContext;
+#elif defined(OVR_OS_LINUX)
+    Display            *x11Display;
+    GLXDrawable         x11Drawable;
+    GLXContext          systemContext;
+    XVisualInfo         x11Visual;
+#elif defined(OVR_OS_MAC)
+    CGLContextObj       systemContext;
+#endif
+        
+public:
+
+    Context();
+    void InitFromCurrent();
+    void CreateShared( Context & ctx );
+#if defined(OVR_OS_MAC)
+    void SetSurface( Context & ctx );
+#endif
+    void Destroy();
+    void Bind();
+    void Unbind();
+    int  GetIncarnation() const { return incarnation; }
+
+};
+
+
+}}} // namespace OVR::CAPI::GL
 
 
 #endif // INC_OVR_CAPI_GL_Util_h

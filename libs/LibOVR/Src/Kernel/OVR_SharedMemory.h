@@ -6,16 +6,16 @@ Content     :   Inter-process shared memory subsystem
 Created     :   June 1, 2014
 Notes       : 
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -48,8 +48,7 @@ class SharedMemory : public RefCountBase<SharedMemory>
 {
 	friend class SharedMemoryFactory;
 
-	SharedMemory(SharedMemory&) {}
-	void operator=(SharedMemory&) {}
+	OVR_NON_COPYABLE(SharedMemory);
 
 public:
 	// Only constructed by the SharedMemory Factory
@@ -155,14 +154,18 @@ protected:
 	{
 		// Configure open parameters based on read-only mode
 		SharedMemory::OpenParameters params;
-		params.globalName = name;
-		// FIXME: This is a hack.  We currently need to open this for read-write even when just reading from
-		// it because the LocklessUpdater class technically writes to it (increments by 0).
-		//params.accessMode = readOnly ? SharedMemory::AccessMode_ReadOnly : SharedMemory::AccessMode_ReadWrite;
-		//params.remoteMode = SharedMemory::RemoteMode_ReadOnly;
-		params.accessMode = SharedMemory::AccessMode_ReadWrite;
-		params.remoteMode = SharedMemory::RemoteMode_ReadWrite;
-		params.minSizeBytes = RegionSize;
+
+        // FIXME: This is a hack.  We currently need to allow clients to open this for read-write even
+        // though they only need read-only access.  This is because in the first 0.4 release the
+        // LocklessUpdater class technically writes to it (increments by 0) to read from the space.
+        // This was quickly corrected in 0.4.1 and we are waiting for the right time to disallow write
+        // access when everyone upgrades to 0.4.1+.
+        //params.remoteMode = SharedMemory::RemoteMode_ReadOnly;
+        params.remoteMode = SharedMemory::RemoteMode_ReadWrite;
+
+        params.globalName = name;
+        params.accessMode = readOnly ? SharedMemory::AccessMode_ReadOnly : SharedMemory::AccessMode_ReadWrite;
+        params.minSizeBytes = RegionSize;
 		params.openMode = readOnly ? SharedMemory::OpenMode_OpenOnly : SharedMemory::OpenMode_CreateOrOpen;
 
 		// Attempt to open the shared memory file

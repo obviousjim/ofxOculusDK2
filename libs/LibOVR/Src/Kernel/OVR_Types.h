@@ -6,16 +6,16 @@ Content     :   Standard library defines and simple types
 Created     :   September 19, 2012
 Notes       : 
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -30,6 +30,7 @@ limitations under the License.
 
 #include "OVR_Compiler.h"
 
+
 // Unsupported compiler configurations
 #if _MSC_VER == 0x1600
 #  if _MSC_FULL_VER < 160040219
@@ -39,15 +40,29 @@ limitations under the License.
 
 
 //-----------------------------------------------------------------------------------
-// ****** Operating System
+// ****** Operating system identification
+//
+// Try to use the most generic version of these defines as possible in order to achieve
+// the simplest portable code. For example, instead of using #if (defined(OVR_OS_IPHONE) || defined(OVR_OS_MAC)),
+// consider using #if defined(OVR_OS_APPLE).
 //
 // Type definitions exist for the following operating systems: (OVR_OS_x)
 //
-//    WIN32    - Win32 (Windows 95/98/ME and Windows NT/2000/XP)
-//    DARWIN   - Darwin OS (Mac OS X)
-//    LINUX    - Linux
-//    ANDROID  - Android
-//    IPHONE   - iPhone
+//    WIN32      - Win32 and Win64 (Windows XP and later) Does not include Microsoft phone and console platforms, despite that Microsoft's _WIN32 may be defined by the compiler for them.
+//    WIN64      - Win64 (Windows XP and later)
+//    MAC        - Mac OS X (may be defined in addition to BSD)
+//    LINUX      - Linux
+//    BSD        - BSD Unix
+//    ANDROID    - Android (may be defined in addition to LINUX)
+//    IPHONE     - iPhone
+//    MS_MOBILE  - Microsoft mobile OS.
+//
+//  Meta platforms
+//    MS        - Any OS by Microsoft (e.g. Win32, Win64, phone, console)
+//    APPLE     - Any OS by Apple (e.g. iOS, OS X)
+//    UNIX      - Linux, BSD, Mac OS X.
+//    MOBILE    - iOS, Android, Microsoft phone
+//
 
 #if (defined(__APPLE__) && (defined(__GNUC__) ||\
      defined(__xlC__) || defined(__xlc__))) || defined(__MACOS__)
@@ -56,20 +71,56 @@ limitations under the License.
 #  else
 #    define OVR_OS_DARWIN
 #    define OVR_OS_MAC
+#    define OVR_OS_BSD
 #  endif
 #elif (defined(WIN64) || defined(_WIN64) || defined(__WIN64__))
-#  define OVR_OS_WIN32
+#  define OVR_OS_WIN64
+#  define OVR_OS_WIN32   // Defined for compatibility and because the Win64 API supports the Win32 API.
 #elif (defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__))
 #  define OVR_OS_WIN32
+#elif defined(ANDROID) || defined(__ANDROID__)
+#  define OVR_OS_ANDROID
+#  define OVR_OS_LINUX
 #elif defined(__linux__) || defined(__linux)
 #  define OVR_OS_LINUX
+#elif defined(_BSD_) || defined(__FreeBSD__)
+#  define OVR_OS_BSD
 #else
 #  define OVR_OS_OTHER
 #endif
 
-#if defined(ANDROID)
-#  define OVR_OS_ANDROID
+
+#if !defined(OVR_OS_MS_MOBILE)
+#   if (defined(_M_ARM) || defined(_M_IX86) || defined(_M_AMD64)) && !defined(OVR_OS_WIN32) && !defined(OVR_OS_CONSOLE)
+#       define OVR_OS_MS_MOBILE
+#   endif
 #endif
+
+#if !defined(OVR_OS_MS)
+#   if defined(OVR_OS_WIN32) || defined(OVR_OS_WIN64) || defined(OVR_OS_MS_MOBILE)
+#       define OVR_OS_MS
+#   endif
+#endif
+
+#if !defined(OVR_OS_APPLE)
+#   if defined(OVR_OS_MAC) || defined(OVR_OS_IPHONE)
+#       define OVR_OS_APPLE
+#   endif
+#endif
+
+#if !defined(OVR_OS_UNIX)
+#   if defined(OVR_OS_ANDROID) || defined(OVR_OS_BSD) || defined(OVR_OS_LINUX) || defined(OVR_OS_MAC)
+#       define OVR_OS_UNIX
+#   endif
+#endif
+
+#if !defined(OVR_OS_MOBILE)
+#   if defined(OVR_OS_ANDROID) || defined(OVR_OS_IPHONE) || defined(OVR_OS_MS_MOBILE)
+#       define OVR_OS_MOBILE
+#   endif
+#endif
+
+
 
 
 //-----------------------------------------------------------------------------------
@@ -85,7 +136,7 @@ limitations under the License.
 //    OTHER      - CPU for which no special support is present or needed
 
 
-#if defined(__x86_64__) || defined(WIN64) || defined(_WIN64) || defined(__WIN64__)
+#if defined(__x86_64__) || defined(WIN64) || defined(_WIN64) || defined(__WIN64__) || defined(_M_AMD64)
 #  define OVR_CPU_X86_64
 #  define OVR_64BIT_POINTERS
 #elif defined(__i386__) || defined(OVR_OS_WIN32)
@@ -111,7 +162,7 @@ limitations under the License.
 //    Altivec    - Available on all modern ppc processors.
 //    Neon       - Available on some armv7+ processors.
 
-#if defined(__SSE__) || defined(OVR_OS_WIN32)
+#if defined(__SSE__) || defined(_M_IX86) || defined(_M_AMD64) // _M_IX86 and _M_AMD64 are Microsoft identifiers for Intel-based platforms.
 #  define  OVR_CPU_SSE
 #endif // __SSE__
 
@@ -163,16 +214,6 @@ limitations under the License.
 #  define _CRTDBG_MAP_ALLOC
 #  include <stdlib.h>
 #  include <crtdbg.h>
-
-#if 0
-// Uncomment this to help debug memory leaks under Visual Studio in OVR apps only.
-// This shouldn't be defined in customer releases.
-#  ifndef OVR_DEFINE_NEW
-#    define OVR_DEFINE_NEW new(__FILE__, __LINE__)
-#    define new OVR_DEFINE_NEW
-#  endif
-#endif
-
 #endif
 
 
@@ -205,7 +246,7 @@ typedef size_t          UPInt;
 typedef ptrdiff_t       SPInt;
 
 
-#if defined(OVR_OS_WIN32) 
+#if defined(OVR_OS_MS)
 
 typedef char            SByte;  // 8 bit Integer (Byte)
 typedef unsigned char   UByte;
@@ -240,6 +281,15 @@ typedef uint32_t        UInt32;
 typedef int64_t         SInt64;
 typedef uint64_t        UInt64;
 
+#endif
+    
+    
+//osx PID is a signed int32 (already defined to pid_t in OSX framework)
+//linux PID is a signed int32 (already defined)
+//win32 PID is an unsigned int64
+#ifdef OVR_OS_WIN32
+//process ID representation
+typedef unsigned long pid_t;
 #endif
 
 struct OVR_GUID
@@ -306,9 +356,9 @@ struct OVR_GUID
 #define OVR_BIG_ENDIAN          2
 
 
-#if defined(OVR_OS_WIN32) 
+#if defined(OVR_OS_MS)
     
-    // ***** Win32
+    // ***** Windows and non-desktop platforms
 
     // Byte order
     #define OVR_BYTE_ORDER    OVR_LITTLE_ENDIAN
@@ -501,14 +551,25 @@ struct OVR_GUID
 // If not in debug build, macros do nothing
 #ifndef OVR_BUILD_DEBUG
 
+// The expresssion is defined only in debug builds. It is defined away in release builds.
 #  define OVR_DEBUG_CODE(c)
+
+// Causes a debugger breakpoint in debug builds. Has no effect in release builds.
 #  define OVR_DEBUG_BREAK  ((void)0)
+
+// In debug builds this tests the given expression; if false then executes OVR_DEBUG_BREAK,
+// if true then no action. Has no effect in release builds.
 #  define OVR_ASSERT(p)    ((void)0)
+
+// Acts the same as OVR_ASSERT in debug builds. Acts the same as OVR_UNUSED in release builds.
+// Example usage: OVR_ASSERT_AND_UNUSED(x < 30, x);
+#define OVR_ASSERT_AND_UNUSED(expression, value) OVR_UNUSED(value)
 
 #else 
 
+// Causes a debugger breakpoint in debug builds. Has no effect in release builds.
 // Microsoft Win32 specific debugging support
-#if defined(OVR_OS_WIN32) 
+#if defined(OVR_OS_MS)
 #  ifdef OVR_CPU_X86
 #    if defined(__cplusplus_cli)
 #      define OVR_DEBUG_BREAK   do { __debugbreak(); } while(0)
@@ -527,10 +588,23 @@ struct OVR_GUID
 #  define OVR_DEBUG_BREAK       do { *((int *) 0) = 1; } while(0)
 #endif
 
+// The expresssion is defined only in debug builds. It is defined away in release builds.
 #define OVR_DEBUG_CODE(c) c
 
-// This will cause compiler breakpoint
-#define OVR_ASSERT(p)           do { if (!(p))  { OVR_DEBUG_BREAK; } } while(0)
+// In debug builds this tests the given expression; if false then executes OVR_DEBUG_BREAK,
+// if true then no action. Has no effect in release builds.
+#if defined(__clang_analyzer__) // During static analysis, make it so the analyzer thinks that failed asserts result in program exit. Reduced false positives.
+    #include <stdlib.h>
+    #define OVR_ASSERT(p)        do { if (!(p))  { OVR_DEBUG_BREAK; exit(0); } } while(0)
+#else
+    #define OVR_ASSERT(p)        do { if (!(p))  { OVR_DEBUG_BREAK; } } while(0)
+#endif
+
+
+
+// Acts the same as OVR_ASSERT in debug builds. Acts the same as OVR_UNUSED in release builds.
+// Example usage: OVR_ASSERT_AND_UNUSED(x < 30, x);
+#define OVR_ASSERT_AND_UNUSED(expression, value) OVR_ASSERT(expression); OVR_UNUSED(value)
 
 #endif // OVR_BUILD_DEBUG
 
@@ -540,6 +614,8 @@ struct OVR_GUID
 //
 // Compile-time assert; produces compiler error if condition is false.
 // The expression must be a compile-time constant expression.
+// This macro is deprecated in favor of static_assert, which provides better
+// compiler output and works in a broader range of contexts.
 // 
 // Example usage:
 //     OVR_COMPILER_ASSERT(sizeof(int32_t == 4));
@@ -575,6 +651,29 @@ struct OVR_GUID
     #else
         #define static_assert(expression, msg) typedef char OVR_SA_HELP(compileTimeAssert, __LINE__) [((expression) != 0) ? 1 : -1] OVR_SA_UNUSED
     #endif
+#endif
+
+
+// ***** OVR_PROCESSOR_PAUSE
+//
+// Yields the processor for other hyperthreads, usually for the purpose of implementing spins and spin locks. 
+//
+// Example usage:
+//     while(!finished())
+//         OVR_PROCESSOR_PAUSE();
+
+#if defined(OVR_CPU_X86) || defined(OVR_CPU_X86_64)
+    #if defined(OVR_CC_GNU) || defined(OVR_CC_CLANG)
+        #define OVR_PROCESSOR_PAUSE() asm volatile("pause" ::: "memory") // Consumes 38-40 clocks on current Intel x86 and x64 hardware.
+    #elif defined(OVR_CC_MSVC)
+        #include <emmintrin.h>
+        #pragma intrinsic(_mm_pause) // Maps to asm pause.
+        #define OVR_PROCESSOR_PAUSE _mm_pause
+    #else
+        #define OVR_PROCESSOR_PAUSE()
+    #endif
+#else
+    #define OVR_PROCESSOR_PAUSE()
 #endif
 
 
@@ -718,6 +817,31 @@ struct OVR_GUID
 // - used with OVR_DEFINE_NEW macro
 //# define OVR_BUILD_DEFINE_NEW
 //
+
+
+//-----------------------------------------------------------------------------------
+// ***** Find normal allocations
+//
+// Our allocations are all supposed to go through the OVR System Allocator, so that
+// they can be run through a game's own preferred allocator.  Occasionally we will
+// accidentally introduce new code that doesn't adhere to this contract.  And it
+// then becomes difficult to track down these normal allocations.  This piece of
+// code makes it easy to check for normal allocations by asserting whenever they
+// happen in our code.
+
+//#define OVR_FIND_NORMAL_ALLOCATIONS
+#ifdef OVR_FIND_NORMAL_ALLOCATIONS
+
+inline void* operator new (size_t size, const char* filename, int line)
+{
+    void* ptr = new char[size];
+    OVR_ASSERT(false);
+    return ptr;
+}
+
+#define new new(__FILE__, __LINE__)
+
+#endif // OVR_FIND_NORMAL_ALLOCATIONS
 
 
 

@@ -6,16 +6,16 @@ Content     :   General kernel initialization/cleanup, including that
 Created     :   September 19, 2012
 Notes       : 
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -26,6 +26,10 @@ limitations under the License.
 ************************************************************************************/
 
 #include "OVR_SerialFormat.h"
+
+#ifdef SERIAL_FORMAT_UNIT_TEST
+#include "Kernel/OVR_Log.h"
+#endif
 
 namespace OVR {
 
@@ -229,7 +233,7 @@ bool DK2PrintedSerialFormat::FromBase32(const char* str, bool allowUnknownTypes)
 
 	// Product Id
 
-	int productId = Base32FromChar[str[0]];
+	int productId = Base32FromChar[(unsigned char)str[0]];
 	if (productId < 0 || (!allowUnknownTypes && !ValidDK2ProductId(productId)))
 	{
 		return false;
@@ -239,7 +243,7 @@ bool DK2PrintedSerialFormat::FromBase32(const char* str, bool allowUnknownTypes)
 
 	// Label Type
 
-	int labelType = Base32FromChar[str[1]];
+	int labelType = Base32FromChar[(unsigned char)str[1]];
 	if (labelType < 0 || (!allowUnknownTypes && !ValidDK2PartId(labelType)))
 	{
 		return false;
@@ -250,7 +254,7 @@ bool DK2PrintedSerialFormat::FromBase32(const char* str, bool allowUnknownTypes)
 	uint8_t dataBytes[7];
 	for (int ii = 0; ii < 7; ++ii)
 	{
-		int c = Base32FromChar[str[2 + ii]];
+		int c = Base32FromChar[(unsigned char)str[2 + ii]];
 		if (c < 0) return false;
 		dataBytes[ii] = (uint8_t)c;
 	}
@@ -267,7 +271,7 @@ bool DK2PrintedSerialFormat::FromBase32(const char* str, bool allowUnknownTypes)
 
 	for (int ii = 0; ii < 3; ++ii)
 	{
-		int c = Base32FromChar[str[9 + ii]];
+		int c = Base32FromChar[(unsigned char)str[9 + ii]];
 		if (c < 0)
 		{
 			return false;
@@ -359,84 +363,86 @@ void DK2PrintedSerialFormat::FromBinary(const DK2BinarySerialFormat& bin)
 
 int DecodeBase32(char ch)
 {
-	if (ch >= '2' && ch <= '9')
-		return 2 + ch - '2';
-	if (ch >= 'a' && ch <= 'h')
-		return 10 + ch - 'a';
-	if (ch >= 'A' && ch <= 'H')
-		return 10 + ch - 'A';
-	if (ch >= 'j' && ch <= 'k')
-		return 18 + ch - 'j';
-	if (ch >= 'J' && ch <= 'K')
-		return 18 + ch - 'J';
-	if (ch >= 'm' && ch <= 'n')
-		return 20 + ch - 'm';
-	if (ch >= 'M' && ch <= 'N')
-		return 20 + ch - 'M';
-	if (ch >= 'p' && ch <= 't')
-		return 22 + ch - 'p';
-	if (ch >= 'P' && ch <= 'T')
-		return 22 + ch - 'P';
-	if (ch >= 'v' && ch <= 'z')
-		return 27 + ch - 'v';
-	if (ch >= 'V' && ch <= 'Z')
-		return 27 + ch - 'V';
+    if (ch >= '2' && ch <= '9')
+        return 2 + ch - '2';
+    if (ch >= 'a' && ch <= 'h')
+        return 10 + ch - 'a';
+    if (ch >= 'A' && ch <= 'H')
+        return 10 + ch - 'A';
+    if (ch >= 'j' && ch <= 'k')
+        return 18 + ch - 'j';
+    if (ch >= 'J' && ch <= 'K')
+        return 18 + ch - 'J';
+    if (ch >= 'm' && ch <= 'n')
+        return 20 + ch - 'm';
+    if (ch >= 'M' && ch <= 'N')
+        return 20 + ch - 'M';
+    if (ch >= 'p' && ch <= 't')
+        return 22 + ch - 'p';
+    if (ch >= 'P' && ch <= 'T')
+        return 22 + ch - 'P';
+    if (ch >= 'v' && ch <= 'z')
+        return 27 + ch - 'v';
+    if (ch >= 'V' && ch <= 'Z')
+        return 27 + ch - 'V';
 
-	switch (ch)
-	{
-	case '0':
-	case 'o':
-	case 'O':
-		return 0;
-	case '1':
-	case 'i':
-	case '|':
-	case 'I':
-	case 'L':
-	case 'l':
-		return 1;
-	}
+    switch (ch)
+    {
+    case '0':
+    case 'o':
+    case 'O':
+        return 0;
+    case '1':
+    case 'i':
+    case '|':
+    case 'I':
+    case 'L':
+    case 'l':
+        return 1;
+    }
 
-	return -1;
+    return -1;
 }
 
 void TestSerialFormatStuff()
 {
-	for (int ii = 0; ii < 256; ++ii)
-	{
-		OVR_ASSERT(Base32FromChar[ii] == (char)DecodeBase32((char)ii));
-	}
+    for (int ii = 0; ii < 256; ++ii)
+    {
+        OVR_ASSERT(Base32FromChar[ii] == (char)DecodeBase32((char)ii));
+    }
 
-	DK2BinarySerialFormat sa;
-	sa.ProductId = DK2ProductId_DK2;
-	sa.PartId = DK2PartId_HMD;
-	sa.MinutesSinceEpoch = 65000;
-	sa.UnitNumber = 2;
-	sa.MacHash[0] = 0xa1;
-	sa.MacHash[1] = 0xb2;
-	sa.MacHash[2] = 0xc3;
-	sa.MacHash[3] = 0xd4;
-	sa.MacHash[4] = 0xe5;
+    DK2BinarySerialFormat sa;
+    sa.ProductId = DK2ProductId_DK2;
+    sa.PartId = DK2PartId_HMD;
+    sa.MinutesSinceEpoch = 65000;
+    sa.UnitNumber = 2;
+    sa.MacHash[0] = 0xa1;
+    sa.MacHash[1] = 0xb2;
+    sa.MacHash[2] = 0xc3;
+    sa.MacHash[3] = 0xd4;
+    sa.MacHash[4] = 0xe5;
 
-	uint8_t buffer[12];
-	sa.ToBuffer(buffer);
+    uint8_t buffer[12];
+    sa.ToBuffer(buffer);
 
-	DK2BinarySerialFormat sb;
-	OVR_ASSERT(sb.FromBuffer(buffer));
+    DK2BinarySerialFormat sb;
+    bool success = sb.FromBuffer(buffer);
+    OVR_ASSERT(success);
+    OVR_UNUSED(success);
 
-	OVR_ASSERT(sa == sb);
+    OVR_ASSERT(sa == sb);
 
-	DK2PrintedSerialFormat psn;
-	psn.FromBinary(sb);
+    DK2PrintedSerialFormat psn;
+    psn.FromBinary(sb);
 
-	OVR_ASSERT(psn == sa);
+    OVR_ASSERT(psn == sa);
 
-	String s = psn.ToBase32();
+    String s = psn.ToBase32();
 
-	DK2PrintedSerialFormat psn2;
-	psn2.FromBase32(s.ToCStr());
+    DK2PrintedSerialFormat psn2;
+    psn2.FromBase32(s.ToCStr());
 
-	OVR_ASSERT(psn == psn2);
+    OVR_ASSERT(psn == psn2);
 }
 
 #endif // SERIAL_FORMAT_UNIT_TEST

@@ -1,19 +1,22 @@
 /************************************************************************************
 
-Filename    :   Render_GL_Device.cpp
+Filename    :   CAPI_GL_Util.cpp
 Content     :   RenderDevice implementation for OpenGL
 Created     :   September 10, 2012
 Authors     :   David Borel, Andrew Reisse
 
-Copyright   :   Copyright 2012 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License");
+you may not use the Oculus VR Rift SDK except in compliance with the License,
+which is provided at the time of installation or download, or which
+otherwise accompanies this software in either electronic or hard copy form.
+
 You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+http://www.oculusvr.com/licenses/LICENSE-3.2
 
-Unless required by applicable law or agreed to in writing, software
+Unless required by applicable law or agreed to in writing, the Oculus VR SDK
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
@@ -25,8 +28,22 @@ limitations under the License.
 #include "../../Kernel/OVR_Log.h"
 #include <string.h>
 
-namespace OVR { namespace CAPI { namespace GL {
+#if defined(OVR_OS_LINUX)
+ #include "../../Displays/OVR_Linux_SDKWindow.h"
+#endif
 
+#if defined(OVR_OS_MAC)
+
+typedef void *CGSConnectionID;
+typedef int32_t CGSWindowID;
+typedef int32_t CGSSurfaceID;
+
+extern "C" CGLError CGLGetSurface(CGLContextObj ctx, CGSConnectionID *cid, CGSWindowID *wid, CGSSurfaceID *sid);
+extern "C" CGLError CGLSetSurface(CGLContextObj ctx, CGSConnectionID cid, CGSWindowID wid, CGSSurfaceID sid);
+
+#endif
+
+namespace OVR { namespace CAPI { namespace GL {
 
 
 // GL Hooks for non-Mac.
@@ -67,6 +84,12 @@ PFNGLPOLYGONMODEPROC                     glPolygonMode;
 
 PFNWGLGETSWAPINTERVALEXTPROC             wglGetSwapIntervalEXT;
 PFNWGLSWAPINTERVALEXTPROC                wglSwapIntervalEXT;
+PFNWGLGETCURRENTDCPROC                   wglGetCurrentDC;
+PFNWGLGETCURRENTCONTEXTPROC              wglGetCurrentContext;
+PFNWGLCREATECONTEXTPROC                  wglCreateContext;
+PFNWGLDELETECONTEXTPROC                  wglDeleteContext;
+PFNWGLSHARELISTSPROC                     wglShareLists;
+PFNWGLMAKECURRENTPROC                    wglMakeCurrent;
 
 #elif defined(OVR_OS_LINUX)
 
@@ -78,6 +101,7 @@ PFNGLENABLEIPROC                         glEnablei;
 PFNGLDISABLEIPROC                        glDisablei;
 PFNGLCOLORMASKIPROC                      glColorMaski;
 PFNGLGETINTEGERI_VPROC                   glGetIntegeri_v;
+PFNGLGETSTRINGIPROC                      glGetStringi;
 PFNGLGENFRAMEBUFFERSPROC                 glGenFramebuffers;
 PFNGLDELETEFRAMEBUFFERSPROC              glDeleteFramebuffers;
 PFNGLDELETESHADERPROC                    glDeleteShader;
@@ -124,7 +148,9 @@ PFNGLUNIFORM1FVPROC                      glUniform1fv;
 PFNGLGENVERTEXARRAYSPROC                 glGenVertexArrays;
 PFNGLDELETEVERTEXARRAYSPROC              glDeleteVertexArrays;
 PFNGLBINDVERTEXARRAYPROC                 glBindVertexArray;
-PFNGLFEEDBACKBUFFERPROC                  glFeedbackBuffer;
+PFNGLBLENDFUNCSEPARATEPROC               glBlendFuncSeparate;
+PFNGLBLITFRAMEBUFFEREXTPROC              glBlitFramebuffer;
+PFNGLDRAWBUFFERSPROC                     glDrawBuffers;
 
 
 #if defined(OVR_OS_WIN32)
@@ -183,6 +209,12 @@ void InitGLExtensions()
 	glPolygonMode =                     (PFNGLPOLYGONMODEPROC)                     GetProcAddress(hInst, "glPolygonMode");
 
     wglGetProcAddress =                 (PFNWGLGETPROCADDRESS)                     GetProcAddress(hInst, "wglGetProcAddress");
+	wglGetCurrentDC =                   (PFNWGLGETCURRENTDCPROC)                   GetProcAddress(hInst, "wglGetCurrentDC");
+	wglGetCurrentContext =              (PFNWGLGETCURRENTCONTEXTPROC)              GetProcAddress(hInst, "wglGetCurrentContext");
+	wglCreateContext =                  (PFNWGLCREATECONTEXTPROC)                  GetProcAddress(hInst, "wglCreateContext");
+	wglDeleteContext =                  (PFNWGLDELETECONTEXTPROC)                  GetProcAddress(hInst, "wglDeleteContext");
+	wglShareLists =                     (PFNWGLSHARELISTSPROC)                     GetProcAddress(hInst, "wglShareLists");
+	wglMakeCurrent =                    (PFNWGLMAKECURRENTPROC)                    GetProcAddress(hInst, "wglMakeCurrent");
 
     wglGetSwapIntervalEXT =             (PFNWGLGETSWAPINTERVALEXTPROC)             GetFunction("wglGetSwapIntervalEXT");
     wglSwapIntervalEXT =                (PFNWGLSWAPINTERVALEXTPROC)                GetFunction("wglSwapIntervalEXT");
@@ -191,6 +223,7 @@ void InitGLExtensions()
     glXSwapIntervalEXT =                (PFNGLXSWAPINTERVALEXTPROC)                GetFunction("glXSwapIntervalEXT");
 #endif
     
+	glGetStringi =                      (PFNGLGETSTRINGIPROC)                      GetFunction("glGetStringi");
     glGenFramebuffers =                 (PFNGLGENFRAMEBUFFERSPROC)                 GetFunction("glGenFramebuffersEXT");
     glDeleteFramebuffers =              (PFNGLDELETEFRAMEBUFFERSPROC)              GetFunction("glDeleteFramebuffersEXT");
 	glEnablei =                         (PFNGLENABLEIPROC)                         GetFunction("glEnableIndexedEXT");
@@ -242,7 +275,9 @@ void InitGLExtensions()
     glDetachShader =                    (PFNGLDETACHSHADERPROC)                    GetFunction("glDetachShader");
     glBindAttribLocation =              (PFNGLBINDATTRIBLOCATIONPROC)              GetFunction("glBindAttribLocation");
     glGetAttribLocation =               (PFNGLGETATTRIBLOCATIONPROC)               GetFunction("glGetAttribLocation");
-    glFeedbackBuffer =                  (PFNGLFEEDBACKBUFFERPROC)                  GetFunction("glFeedbackBuffer");
+    glBlendFuncSeparate =               (PFNGLBLENDFUNCSEPARATEPROC)               GetFunction("glBlendFuncSeparate");
+    glBlitFramebuffer =                 (PFNGLBLITFRAMEBUFFEREXTPROC)              GetFunction("glBlitFramebufferEXT");
+    glDrawBuffers =                     (PFNGLDRAWBUFFERSPROC)                     GetFunction("glDrawBuffers");
 }
     
 #endif
@@ -499,7 +534,7 @@ void ShaderBase::InitUniforms(const Uniform* refl, size_t reflSize)
     UniformData = (unsigned char*)OVR_ALLOC(UniformsSize);
 }
 
-Texture::Texture(RenderParams* rp, int w, int h) : IsUserAllocated(true), pParams(rp), TexId(0), Width(w), Height(h)
+Texture::Texture(RenderParams* rp, int w, int h) : IsUserAllocated(false), pParams(rp), TexId(0), Width(w), Height(h)
 {
 	if (w && h)
 		glGenTextures(1, &TexId);
@@ -573,6 +608,313 @@ void Texture::UpdatePlaceholderTexture(GLuint texId, const Sizei& textureSize)
 }
 
 
-}}}
+//// GLVersion
+
+void GLVersionAndExtensions::ParseGLVersion()
+{
+    const char* version = (const char*)glGetString(GL_VERSION);
+    int fields = 0, major = 0, minor = 0;
+    bool isGLES = false;
+
+    OVR_ASSERT(version);
+    if (version)
+    {
+        OVR_DEBUG_LOG(("GL_VERSION: %s", (const char*)version));
+
+        // Skip all leading non-digits before reading %d.
+        // Example GL_VERSION strings:
+        //   "1.5 ATI-1.4.18"
+        //   "OpenGL ES-CM 3.2"
+        OVR_DISABLE_MSVC_WARNING(4996) // "scanf may be unsafe"
+        fields = sscanf(version, isdigit(*version) ? "%d.%d" : "%*[^0-9]%d.%d", &major, &minor);
+        isGLES = (strstr(version, "OpenGL ES") != NULL);
+        OVR_RESTORE_MSVC_WARNING()
+    }
+    else
+    {
+        LogText("Warning: GL_VERSION was NULL\n");
+    }
+
+    // If two fields were not found,
+    if (fields != 2)
+    {
+        static_assert(sizeof(major) == sizeof(GLint), "type mis-match");
+
+        glGetIntegerv(GL_MAJOR_VERSION, &major);
+        glGetIntegerv(GL_MINOR_VERSION, &minor);
+    }
+
+    // Write version data
+    MajorVersion  = major;
+    MinorVersion  = minor;
+    WholeVersion  = (major * 100) + minor;
+    IsGLES        = isGLES;
+    IsCoreProfile = (MajorVersion >= 3); // Until we get a better way to detect core profiles, we err on the conservative side and set to true if the version is >= 3.
+}
 
 
+bool GLVersionAndExtensions::HasGLExtension(const char* searchKey) const
+{
+    if(Extensions && Extensions[0]) // If we have an extension string to search for individual extensions...
+    {
+        const int searchKeyLen = (int)strlen(searchKey);
+        const char* p = Extensions;
+
+        for (;;)
+        {
+            p = strstr(p, searchKey);
+
+            // If not found,
+            if (p == NULL)
+            {
+                break;
+            }
+
+            // Only match full string
+            if ((p == Extensions || p[-1] == ' ') &&
+                (p[searchKeyLen] == '\0' || p[searchKeyLen] == ' '))
+            {
+                return true;
+            }
+
+            // Skip ahead
+            p += searchKeyLen;
+        }
+    }
+    else
+    {
+        if(MajorVersion >= 3) // If glGetIntegerv(GL_NUM_EXTENSIONS, ...) is supported...
+        {
+            GLint extensionCount = 0;
+            glGetIntegerv(GL_NUM_EXTENSIONS, &extensionCount);
+            GLenum err = glGetError();
+            
+            if(err == 0)
+            {
+                for(GLint i = 0; i != extensionCount; ++i)
+                {
+                    const char* extension = (const char*)glGetStringi(GL_EXTENSIONS, (GLuint)i);
+                    
+                    if(extension) // glGetStringi returns NULL upon error.
+                    {
+                        if(strcmp(extension, searchKey) == 0)
+                            return true;
+                    }
+                    else
+                        break;
+                }
+            }
+        }
+    }
+    
+    return false;
+}
+
+void GLVersionAndExtensions::ParseGLExtensions()
+{
+    if(MajorVersion >= 3)
+    {
+        // Set to empty because we need to use glGetStringi to read extensions on recent OpenGL.
+        Extensions = "";
+    }
+    else
+    {
+        const char* extensions = (const char*)glGetString(GL_EXTENSIONS);
+
+        OVR_ASSERT(extensions);
+        if (!extensions)
+        {
+            extensions = ""; // Note: glGetString() can return null
+            LogText("Warning: GL_EXTENSIONS was NULL\n");
+        }
+        else
+        {
+            // Cannot print this to debug log: It's too long!
+            //OVR_DEBUG_LOG(("GL_EXTENSIONS: %s", (const char*)extensions));
+        }
+
+        Extensions = extensions;
+    }
+
+    // To do: revise the code below to loop through calls to glGetStringi(GL_EXTENSIONS, ...) so that all extensions below 
+    // can be searched with a single pass over the extensions instead of a full loop per HasGLExtensionCall. 
+
+    if (MajorVersion >= 3)
+    {
+        SupportsVAO = true;
+    }
+    else
+    {
+        SupportsVAO =
+            HasGLExtension("GL_ARB_vertex_array_object") ||
+            HasGLExtension("GL_APPLE_vertex_array_object");
+    }
+
+    SupportsDrawBuffers = HasGLExtension("GL_EXT_draw_buffers2");
+
+    // Add more extension checks here...
+}
+
+void GetGLVersionAndExtensions(GLVersionAndExtensions& versionInfo)
+{
+    versionInfo.ParseGLVersion();
+    // GL Version must be parsed before parsing extensions:
+    versionInfo.ParseGLExtensions();
+    // To consider: Call to glGetStringi(GL_SHADING_LANGUAGE_VERSION, ...) check/validate the GLSL support.
+}
+
+
+Context::Context() : initialized(false), ownsContext(true), incarnation(0)
+{
+#if defined(OVR_OS_MAC)
+    systemContext = 0;
+#elif defined(OVR_OS_WIN32)
+    hdc = 0;
+    systemContext = 0;
+#elif defined(OVR_OS_LINUX)
+    x11Display = 0;
+    x11Drawable = 0;
+    systemContext = 0;
+#endif
+
+}
+
+void Context::InitFromCurrent()
+{
+    Destroy();
+
+    initialized = true;
+    ownsContext = false;
+    incarnation++;
+    
+#if defined(OVR_OS_MAC)
+    systemContext = CGLGetCurrentContext();
+        {
+        CGSConnectionID cid;
+        CGSWindowID wid;
+        CGSSurfaceID sid;
+        CGLError e  = kCGLNoError;
+        e = CGLGetSurface(systemContext, &cid, &wid, &sid);
+        OVR_ASSERT(e == kCGLNoError); OVR_UNUSED(e);
+    }
+
+#elif defined(OVR_OS_WIN32)
+    hdc = wglGetCurrentDC();
+    systemContext = wglGetCurrentContext();
+#elif defined(OVR_OS_LINUX)
+    x11Display = glXGetCurrentDisplay();
+    x11Drawable = glXGetCurrentDrawable();
+    systemContext = glXGetCurrentContext();
+    if (!SDKWindow::getVisualFromDrawable(x11Drawable, &x11Visual))
+    {
+        OVR::LogError("[Context] Unable to obtain x11 visual from context");
+    }
+#endif
+}
+
+
+void Context::CreateShared( Context & ctx )
+{
+    Destroy();
+    OVR_ASSERT( ctx.initialized == true );
+    if( ctx.initialized == false )
+    {
+        return;
+    }
+
+    initialized = true;
+    ownsContext = true;
+    incarnation++;
+    
+#if defined(OVR_OS_MAC)
+    CGLPixelFormatObj pixelFormat = CGLGetPixelFormat( ctx.systemContext );
+    CGLError e = CGLCreateContext( pixelFormat, ctx.systemContext, &systemContext );
+    OVR_ASSERT(e == kCGLNoError); OVR_UNUSED(e);
+    SetSurface(ctx);
+#elif defined(OVR_OS_WIN32)
+    hdc = ctx.hdc;
+    systemContext = wglCreateContext( ctx.hdc );
+    BOOL success = wglShareLists(ctx.systemContext, systemContext );
+    OVR_ASSERT( success == TRUE );
+    OVR_UNUSED(success);
+#elif defined(OVR_OS_LINUX)
+    x11Display = ctx.x11Display;
+    x11Drawable = ctx.x11Drawable;
+    x11Visual = ctx.x11Visual;
+    systemContext = glXCreateContext( ctx.x11Display, &x11Visual, ctx.systemContext, True );
+    OVR_ASSERT( systemContext != NULL );
+#endif
+}
+
+#if defined(OVR_OS_MAC)
+void Context::SetSurface( Context & ctx ) {
+    CGLError e = kCGLNoError;
+    CGSConnectionID cid, cid2;
+    CGSWindowID wid, wid2;
+    CGSSurfaceID sid, sid2;
+    
+
+    
+    e = CGLGetSurface(ctx.systemContext, &cid, &wid, &sid);
+    OVR_ASSERT(e == kCGLNoError); OVR_UNUSED(e);
+    e = CGLGetSurface(systemContext, &cid2, &wid2, &sid2);
+    OVR_ASSERT(e == kCGLNoError); OVR_UNUSED(e);
+    if( sid && sid != sid2 ) {
+        e = CGLSetSurface(systemContext, cid, wid, sid);
+        OVR_ASSERT(e == kCGLNoError); OVR_UNUSED(e);
+    }
+}
+#endif
+
+void Context::Destroy()
+{
+    if( initialized == false )
+    {
+        return;
+    }
+  
+    if( ownsContext )
+    {
+#if defined(OVR_OS_MAC)
+        CGLDestroyContext( systemContext );
+#elif defined(OVR_OS_WIN32)
+        BOOL success = wglDeleteContext( systemContext );
+		OVR_ASSERT( success == TRUE );
+        OVR_UNUSED( success );
+#elif defined(OVR_OS_LINUX)
+        glXDestroyContext( x11Display, systemContext );
+#endif
+        systemContext = NULL;
+    }
+  
+  initialized = false;
+  ownsContext = true;
+  
+  
+}
+
+void Context::Bind()
+{
+#if defined(OVR_OS_MAC)
+    glFlush(); //Apple doesn't automatically flush within CGLSetCurrentContext, unlike other platforms.
+    CGLSetCurrentContext( systemContext );
+#elif defined(OVR_OS_WIN32)
+    wglMakeCurrent( hdc, systemContext );
+#elif defined(OVR_OS_LINUX)
+    glXMakeCurrent( x11Display, x11Drawable, systemContext );
+#endif
+}
+
+void Context::Unbind()
+{
+#if defined(OVR_OS_MAC)
+    glFlush(); //Apple doesn't automatically flush within CGLSetCurrentContext, unlike other platforms.
+    CGLSetCurrentContext( NULL );
+#elif defined(OVR_OS_WIN32)
+    wglMakeCurrent( hdc, NULL );
+#elif defined(OVR_OS_LINUX)
+    glXMakeCurrent( x11Display, None, NULL );
+#endif
+}
+
+}}} // namespace OVR::CAPI::GL

@@ -138,7 +138,8 @@ class ofxOculusDK2
 	ovrRecti			eyeRenderViewport[2];
 	ovrVector2f			UVScaleOffset[2][2];
 	ofVboMesh			eyeMesh[2];
-	ovrPosef headPose[2];
+	ovrPosef			headPose[2];
+	ovrGLTexture		eyeTexture[2]; //SDK rendering 
 	ovrFrameTiming frameTiming;// = ovrHmd_BeginFrameTiming(hmd, 0);
 
 	void initializeClientRenderer();

@@ -8,16 +8,16 @@ Content     :   Contains atomic operations and inline fastest locking
 Created     :   September 19, 2012
 Notes       : 
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,7 +33,7 @@ limitations under the License.
 #include "OVR_Types.h"
 
 // Include System thread functionality.
-#if defined(OVR_OS_WIN32)
+#if defined(OVR_OS_MS) && !defined(OVR_OS_MS_MOBILE)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -42,6 +42,10 @@ limitations under the License.
 #include <pthread.h>
 #endif
 
+#ifdef OVR_CC_MSVC
+#include <intrin.h>
+#pragma intrinsic(_ReadBarrier, _WriteBarrier, _ReadWriteBarrier)
+#endif
 
 namespace OVR {
 
@@ -97,7 +101,7 @@ class Lock;
 
 struct AtomicOpsRawBase
 {
-#if !defined(OVR_ENABLE_THREADS) || defined(OVR_CPU_X86) || defined(OVR_OS_WIN32) || defined(OVR_OS_IPHONE)
+#if !defined(OVR_ENABLE_THREADS) || defined(OVR_CPU_X86) || defined(OVR_CPU_X86_64)
     // Need to have empty constructor to avoid class 'unused' variable warning.
     struct FullSync { inline FullSync() { } };
     struct AcquireSync { inline AcquireSync() { } };
@@ -113,11 +117,10 @@ struct AtomicOpsRawBase
     struct AcquireSync { inline AcquireSync() { } ~AcquireSync() { asm volatile("sync\n"); } };
     struct ReleaseSync { inline ReleaseSync() { asm volatile("sync\n"); } };
 
-#elif defined(OVR_CPU_ARM)
+#elif defined(OVR_CPU_ARM) // Includes Android and iOS.
     struct FullSync { inline FullSync() { asm volatile("dmb\n"); } ~FullSync() { asm volatile("dmb\n"); } };
     struct AcquireSync { inline AcquireSync() { } ~AcquireSync() { asm volatile("dmb\n"); } };
     struct ReleaseSync { inline ReleaseSync() { asm volatile("dmb\n"); } };
-
 
 #elif defined(OVR_CC_GNU) && (__GNUC__ >= 4)
     // __sync functions are already full sync
@@ -138,7 +141,7 @@ struct AtomicOpsRaw_4ByteImpl : public AtomicOpsRawBase
 
     // *** Thread - Safe Atomic Versions.
 
-#elif defined(OVR_OS_WIN32)  
+#elif defined(OVR_OS_MS) 
 
     // Use special defined for VC6, where volatile is not used and
     // InterlockedCompareExchange is declared incorrectly.
@@ -403,7 +406,7 @@ struct AtomicOpsRaw_8ByteImpl : public AtomicOpsRawBase
     typedef uint64_t T;
 
     // *** Thread - Safe OS specific versions.
-#elif defined(OVR_OS_WIN32) 
+#elif defined(OVR_OS_MS)
 
     // This is only for 64-bit systems.
     typedef LONG64      T;
@@ -537,7 +540,22 @@ struct AtomicOpsRaw_DefImpl : public O
 #else
     inline static void  Store_Release(volatile O_T* p, O_T val)  { O_ReleaseSync sync; OVR_UNUSED(sync); *p = val; }
 #endif
-    inline static O_T   Load_Acquire(const volatile O_T* p)      { O_AcquireSync sync; OVR_UNUSED(sync); return *p; }
+    inline static O_T   Load_Acquire(const volatile O_T* p)
+    {
+        O_AcquireSync sync;
+        OVR_UNUSED(sync);
+
+#if defined(OVR_CC_MSVC)
+        _ReadBarrier(); // Compiler fence and load barrier
+#elif defined(OVR_CC_INTEL)
+        __memory_barrier(); // Compiler fence
+#else
+        // GCC-compatible:
+        asm volatile ("" : : : "memory"); // Compiler fence
+#endif
+
+        return *p;
+    }
 };
 
 
@@ -819,7 +837,7 @@ public:
     inline void Unlock() { }
 
    // Windows.   
-#elif defined(OVR_OS_WIN32) 
+#elif defined(OVR_OS_MS)
 
     CRITICAL_SECTION cs;
 public:   

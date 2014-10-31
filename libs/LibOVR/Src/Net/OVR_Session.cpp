@@ -5,16 +5,16 @@ Content     :   One network session that provides connection/disconnection event
 Created     :   June 10, 2014
 Authors     :   Kevin Jenkins, Chris Taylor
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -55,10 +55,17 @@ bool RPC_C2S_Hello::Validate()
            HelloString.CompareNoCase(OfficialHelloString) == 0;
 }
 
-void RPC_S2C_Authorization::Generate(Net::BitStream* bs)
+void RPC_S2C_Authorization::Generate(Net::BitStream* bs, String errorString)
 {
     RPC_S2C_Authorization auth;
-    auth.AuthString = OfficialAuthorizedString;
+    if (errorString.IsEmpty())
+    {
+        auth.AuthString = OfficialAuthorizedString;
+    }
+    else
+    {
+        auth.AuthString = errorString;
+    }
     auth.MajorVersion = RPCVersion_Major;
     auth.MinorVersion = RPCVersion_Minor;
     auth.PatchVersion = RPCVersion_Patch;
@@ -169,17 +176,25 @@ SessionResult Session::Connect(ConnectParameters *cp)
             AllConnections.PushBack(c);
 
         }
-        
+
         if (cp2->Blocking)
         {
             c->WaitOnConnecting();
-
-            if (c->State == State_Connected)
-                return SessionResult_OK;
-            else
-                return SessionResult_ConnectFailure;
         }
-	}
+
+        if (c->State == State_Connected)
+        {
+            return SessionResult_OK;
+        }
+        else if (c->State == Client_Connecting)
+        {
+            return SessionResult_ConnectInProgress;
+        }
+        else
+        {
+            return SessionResult_ConnectFailure;
+        }
+    }
     else if (cp->Transport == TransportType_Loopback)
 	{
 		if (HasLoopbackListener)
@@ -228,12 +243,9 @@ SessionResult Session::ListenPTCP(OVR::Net::BerkleyBindParameters *bbp)
     return Listen(&bld);
 }
 
-SessionResult Session::ConnectPTCP(OVR::Net::BerkleyBindParameters* bbp, SockAddr* RemoteAddress, bool blocking)
+SessionResult Session::ConnectPTCP(OVR::Net::BerkleyBindParameters* bbp, SockAddr* remoteAddress, bool blocking)
 {
-	ConnectParametersBerkleySocket cp;
-    cp.RemoteAddress = RemoteAddress;
-    cp.Transport = TransportType_PacketizedTCP;
-    cp.Blocking = blocking;
+    ConnectParametersBerkleySocket cp(NULL, remoteAddress, blocking, TransportType_PacketizedTCP);
     Ptr<PacketizedTCPSocket> connectSocket = *new PacketizedTCPSocket();
 
 	cp.BoundSocketToConnectWith = connectSocket.GetPtr();
@@ -284,8 +296,10 @@ int Session::Send(SendParameters *payload)
 			rp.pData = (uint8_t*)payload->pData; // FIXME
 			ListenerReceiveResult lrr = LRR_CONTINUE;
 			sl->OnReceive(&rp, &lrr);
-			if (lrr==LRR_RETURN)
-				return payload->Bytes;
+            if (lrr == LRR_RETURN)
+            {
+                return payload->Bytes;
+            }
 			else if (lrr == LRR_BREAK)
 			{
 				break;
@@ -324,9 +338,10 @@ void Session::Broadcast(BroadcastParameters *payload)
         }    
     }
 }
+// DO NOT CALL Poll() FROM MULTIPLE THREADS due to allBlockingTcpSockets being a member
 void Session::Poll(bool listeners)
 {
-	Array< Ptr< Net::TCPSocket > > allBlockingTcpSockets;
+    allBlockingTcpSockets.Clear();
 
 	if (listeners)
 	{
@@ -496,11 +511,14 @@ int Session::invokeSessionListeners(ReceivePayload* rp)
 
 void Session::TCP_OnRecv(Socket* pSocket, uint8_t* pData, int bytesRead)
 {
-	Lock::Locker locker(&ConnectionsLock);
+	// KevinJ: 9/2/2014 Fix deadlock - Watchdog calls Broadcast(), which locks ConnectionsLock().
+	// Lock::Locker locker(&ConnectionsLock);
 
     // Look for the connection in the full connection list first
     int connIndex;
-    PacketizedTCPConnection* conn = findConnectionBySocket(AllConnections, pSocket, &connIndex);
+	ConnectionsLock.DoLock();
+    Ptr<PacketizedTCPConnection> conn = findConnectionBySocket(AllConnections, pSocket, &connIndex);
+	ConnectionsLock.Unlock();
     if (conn)
     {
         if (conn->State == State_Connected)
@@ -522,11 +540,10 @@ void Session::TCP_OnRecv(Socket* pSocket, uint8_t* pData, int bytesRead)
             if (!auth.Deserialize(&bsIn) ||
                 !auth.Validate())
             {
+                LogError("{ERR-001} [Session] REJECTED: OVRService did not authorize us: %s", auth.AuthString.ToCStr());
+
                 conn->SetState(State_Zombie);
                 invokeSessionEvent(&SessionListener::OnIncompatibleProtocol, conn);
-
-                LogError("[Session] REJECTED: Server did not respond with a valid authorization message");
-                AllConnections.RemoveAtUnordered(connIndex);
             }
             else
             {
@@ -537,7 +554,13 @@ void Session::TCP_OnRecv(Socket* pSocket, uint8_t* pData, int bytesRead)
 
                 // Mark as connected
                 conn->SetState(State_Connected);
-                FullConnections.PushBack(conn);
+				ConnectionsLock.DoLock();
+				int connIndex2;
+				if (findConnectionBySocket(AllConnections, pSocket, &connIndex2)==conn && findConnectionBySocket(FullConnections, pSocket, &connIndex2)==NULL)
+				{
+					FullConnections.PushBack(conn);
+				}
+				ConnectionsLock.Unlock();
                 invokeSessionEvent(&SessionListener::OnConnectionRequestAccepted, conn);
             }
         }
@@ -550,13 +573,16 @@ void Session::TCP_OnRecv(Socket* pSocket, uint8_t* pData, int bytesRead)
             if (!hello.Deserialize(&bsIn) ||
                 !hello.Validate())
             {
-                conn->SetState(State_Zombie);
-                invokeSessionEvent(&SessionListener::OnIncompatibleProtocol, conn);
-
-                LogError("[Session] REJECTED: Rift application is using an incompatible version %d.%d.%d (my version=%d.%d.%d)",
+                LogError("{ERR-002} [Session] REJECTED: Rift application is using an incompatible version %d.%d.%d (my version=%d.%d.%d)",
                          hello.MajorVersion, hello.MinorVersion, hello.PatchVersion,
                          RPCVersion_Major, RPCVersion_Minor, RPCVersion_Patch);
-                AllConnections.RemoveAtUnordered(connIndex);
+
+                conn->SetState(State_Zombie);
+
+                // Send auth response
+                BitStream bsOut;
+                RPC_S2C_Authorization::Generate(&bsOut, "Incompatible protocol version.  Please make sure your OVRService and SDK are both up to date.");
+                conn->pSocket->Send(bsOut.GetData(), bsOut.GetNumberOfBytesUsed());
             }
             else
             {
@@ -572,7 +598,13 @@ void Session::TCP_OnRecv(Socket* pSocket, uint8_t* pData, int bytesRead)
 
                 // Mark as connected
                 conn->SetState(State_Connected);
-                FullConnections.PushBack(conn);
+				ConnectionsLock.DoLock();
+				int connIndex2;
+				if (findConnectionBySocket(AllConnections, pSocket, &connIndex2)==conn && findConnectionBySocket(FullConnections, pSocket, &connIndex2)==NULL)
+				{
+					FullConnections.PushBack(conn);
+				}
+				ConnectionsLock.Unlock();
                 invokeSessionEvent(&SessionListener::OnNewIncomingConnection, conn);
 
             }
@@ -612,6 +644,7 @@ void Session::TCP_OnClosed(TCPSocket* s)
             invokeSessionEvent(&SessionListener::OnHandshakeAttemptFailed, conn);
             break;
         case State_Connected:
+        case State_Zombie:
             invokeSessionEvent(&SessionListener::OnDisconnected, conn);
             break;
         default:

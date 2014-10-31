@@ -5,16 +5,16 @@ Content     :   Test logic for lock-less classes
 Created     :   December 27, 2013
 Authors     :   Michael Antonov
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,7 +37,7 @@ namespace OVR { namespace LocklessTest {
 
 const int TestIterations = 10000000;
 
-// Use volatile dummys to force compiler to do spinning.
+// Use volatile dummies to force compiler to do spinning.
 volatile int Dummy1;
 int          Unused1[32];
 volatile int Dummy2;
@@ -89,7 +89,7 @@ struct TestData
 
 
 volatile bool              FirstItemWritten = false;
-LocklessUpdater<TestData>  TestDataUpdater;
+LocklessUpdater<TestData, TestData>  TestDataUpdater;
 
 // Use this lock to verify that testing algorithm is otherwise correct...
 Lock                       TestLock;   
@@ -213,13 +213,10 @@ void StartLocklessTest()
     producerThread->Start();
     consumerThread->Start();
 
-    /*
     while (!producerThread->IsFinished() && consumerThread->IsFinished())
     {
         Thread::MSleep(500);
-    } */
-
-    // TBD: Cleanup
+    }
 }
 
 

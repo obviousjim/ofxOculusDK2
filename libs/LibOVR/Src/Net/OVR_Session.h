@@ -6,16 +6,16 @@ Content     :   One network session that provides connection/disconnection event
 Created     :   June 10, 2014
 Authors     :   Kevin Jenkins, Chris Taylor
 
-Copyright   :   Copyright 2014 Oculus VR, Inc. All Rights reserved.
+Copyright   :   Copyright 2014 Oculus VR, LLC All Rights reserved.
 
-Licensed under the Oculus VR Rift SDK License Version 3.1 (the "License"); 
+Licensed under the Oculus VR Rift SDK License Version 3.2 (the "License"); 
 you may not use the Oculus VR Rift SDK except in compliance with the License, 
 which is provided at the time of installation or download, or which 
 otherwise accompanies this software in either electronic or hard copy form.
 
 You may obtain a copy of the License at
 
-http://www.oculusvr.com/licenses/LICENSE-3.1 
+http://www.oculusvr.com/licenses/LICENSE-3.2 
 
 Unless required by applicable law or agreed to in writing, the Oculus VR SDK 
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -44,11 +44,13 @@ class Session;
 // Based on Semantic Versioning ( http://semver.org/ )
 //
 // Please update changelog below:
-// 1.0.0 - Initial DK2 release version (July 21, 2014) -catid
+// 1.0.0 - [SDK 0.4.0] Initial version (July 21, 2014)
+// 1.1.0 - Add Get/SetDriverMode_1, HMDCountUpdate_1
+//         Version mismatch results (July 28, 2014)
 //-----------------------------------------------------------------------------
 
 static const uint16_t RPCVersion_Major = 1; // MAJOR version when you make incompatible API changes,
-static const uint16_t RPCVersion_Minor = 0; // MINOR version when you add functionality in a backwards-compatible manner, and
+static const uint16_t RPCVersion_Minor = 1; // MINOR version when you add functionality in a backwards-compatible manner, and
 static const uint16_t RPCVersion_Patch = 0; // PATCH version when you make backwards-compatible bug fixes.
 
 // Client starts communication by sending its version number.
@@ -118,7 +120,7 @@ struct RPC_S2C_Authorization
         return bs->Read(PatchVersion);
     }
 
-    static void Generate(Net::BitStream* bs);
+    static void Generate(Net::BitStream* bs, String errorString = "");
 
     bool Validate();
 };
@@ -132,6 +134,7 @@ enum SessionResult
 	SessionResult_BindFailure,
 	SessionResult_ListenFailure,
 	SessionResult_ConnectFailure,
+    SessionResult_ConnectInProgress,
     SessionResult_AlreadyConnected,
 };
 
@@ -196,28 +199,37 @@ protected:
     }
 
 public:
-    virtual void SetState(EConnectionState s) {
-        if (s==State)
-            return;
-
-        Mutex::Locker locker(&StateMutex);
-        State = s;
-        if (State != Client_Connecting)
-            ConnectingWait.NotifyAll();
-    }
-
-    void WaitOnConnecting() {
-        while (State == Client_Connecting)
+    virtual void SetState(EConnectionState s)
+    {
+        if (s != State)
         {
             Mutex::Locker locker(&StateMutex);
+
+            if (s != State)
+            {
+                State = s;
+
+                if (State != Client_Connecting)
+                {
+                    ConnectingWait.NotifyAll();
+                }
+            }
+        }
+    }
+
+    void WaitOnConnecting()
+    {
+        Mutex::Locker locker(&StateMutex);
+
+        while (State == Client_Connecting)
+        {
             ConnectingWait.Wait(&StateMutex);
         }
     }
 
-	SockAddr Address;
-
-    OVR::Mutex         StateMutex;
-    OVR::WaitCondition ConnectingWait;
+	SockAddr      Address;
+    Mutex         StateMutex;
+    WaitCondition ConnectingWait;
 };
 
 
@@ -292,7 +304,7 @@ public:
 struct ReceivePayload
 {
 	Connection* pConnection; // Source connection
-	uint8_t*      pData;       // Pointer to data received
+	uint8_t*    pData;       // Pointer to data received
 	int         Bytes;       // Number of bytes of data received
 };
 
@@ -359,16 +371,15 @@ struct ConnectParametersBerkleySocket : public ConnectParameters
 {
 	SockAddr           RemoteAddress;
 	Ptr<BerkleySocket> BoundSocketToConnectWith;
-    bool                Blocking;
+    bool               Blocking;
 
-	ConnectParametersBerkleySocket()
+    ConnectParametersBerkleySocket(BerkleySocket* s, SockAddr* addr, bool blocking,
+                                   TransportType transport) :
+        RemoteAddress(*addr),
+        BoundSocketToConnectWith(s),
+        Blocking(blocking)
     {
-    }
-
-	ConnectParametersBerkleySocket(Socket* s, SockAddr* addr) :
-        RemoteAddress(*addr)
-    {
-        BoundSocketToConnectWith = (BerkleySocket*)s;
+        Transport = transport;
     }
 };
 
@@ -395,6 +406,8 @@ enum ListenerReceiveResult
 class SessionListener
 {
 public:
+	virtual ~SessionListener(){}
+
 	// Data events
     virtual void OnReceive(ReceivePayload* pPayload, ListenerReceiveResult* lrrOut) { OVR_UNUSED2(pPayload, lrrOut);  }
 
@@ -429,6 +442,12 @@ public:
 //  Interface for network events such as listening on a socket, sending data, connecting, and disconnecting. Works independently of the transport medium and also implements loopback
 class Session : public SocketEvent_TCP, public NewOverrideBase
 {
+    // Implement a policy to avoid releasing memory backing allBlockingTcpSockets
+	struct ArrayNoShrinkPolicy : ArrayDefaultPolicy
+	{
+		bool NeverShrinking() const { return 1; }
+	};
+
 public:
     Session() :
         HasLoopbackListener(false)
@@ -436,12 +455,15 @@ public:
     }
     virtual ~Session()
     {
+        // Ensure memory backing the sockets array is released
+		allBlockingTcpSockets.ClearAndRelease();
     }
 
 	virtual SessionResult Listen(ListenerDescription* pListenerDescription);
 	virtual SessionResult Connect(ConnectParameters* cp);
 	virtual int           Send(SendParameters* payload);
     virtual void          Broadcast(BroadcastParameters* payload);
+    // DO NOT CALL Poll() FROM MULTIPLE THREADS due to allBlockingTcpSockets being a member
     virtual void          Poll(bool listeners = true);
 	virtual void          AddSessionListener(SessionListener* se);
 	virtual void          RemoveSessionListener(SessionListener* se);
@@ -470,6 +492,7 @@ protected:
     Array< Ptr<Connection> >  AllConnections;      // List of active connections stuck at the versioning handshake
     Array< Ptr<Connection> >  FullConnections;     // List of active connections past the versioning handshake
     Array< SessionListener* > SessionListeners;    // List of session listeners
+    Array< Ptr< Net::TCPSocket >, ArrayNoShrinkPolicy > allBlockingTcpSockets; // Preallocated blocking sockets array
 
     // Tools
     Ptr<PacketizedTCPConnection> findConnectionBySocket(Array< Ptr<Connection> >& connectionArray, Socket* s, int *connectionIndex = NULL); // Call with ConnectionsLock held
