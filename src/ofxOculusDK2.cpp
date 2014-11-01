@@ -208,13 +208,17 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	ovrhmd_EnableHSWDisplaySDKRender(hmd, 0);
 	
 // Start the sensor which provides the Rift’s pose and motion.
+	/*
 	ovrHmd_ConfigureTracking(hmd, 
 		ovrTrackingCap_Orientation | 
 		ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
-	
+	*/
+	ovrHmd_ConfigureTracking(hmd, 
+		ovrTrackingCap_Orientation | 
+		ovrTrackingCap_MagYawCorrection, 0);
+
 	int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
-	//int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
 
 	Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
 	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
@@ -699,12 +703,6 @@ ofVec2f ofxOculusDK2::gazePosition2D(){
 }
 
 void ofxOculusDK2::draw(){
-
-	ovrHmd_EndFrame(hmd, headPose, &eyeTexture[0].Texture);
-	bUseOverlay = false;
-	bUseBackground = false;
-	insideFrame = false;
-	return;
 
 	if(!bSetup){
 		return;
