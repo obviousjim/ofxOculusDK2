@@ -92,7 +92,7 @@ void testApp::setupSpheres() {
 void testApp::draw()
 {
 	if(oculusRift.isSetup()){
-
+/*
 		if(0 && showOverlay){
 			
 			oculusRift.beginOverlay(-230, 320,240);
@@ -116,7 +116,11 @@ void testApp::draw()
 			ofPopStyle();
 			oculusRift.endOverlay();
 		}
+ */
 
+        cam.begin();
+        cam.end();
+        
         ofSetColor(255);
 		glEnable(GL_DEPTH_TEST);
 
