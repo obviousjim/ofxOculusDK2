@@ -126,6 +126,7 @@ ovrVector3f toOVR(const ofVec3f& v ){
 ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
     insideFrame = false;
+    frameIndex = 0;
 
     bUsingDebugHmd = false;
     startTrackingCaps = 0;
@@ -232,6 +233,9 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 
 	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
 	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
+    
+    hmdToEyeViewOffsets[0] = eyeRenderDesc[0].HmdToEyeViewOffset;
+    hmdToEyeViewOffsets[1] = eyeRenderDesc[1].HmdToEyeViewOffset;
 
 	eyeRenderViewport[0].Pos  = Vector2i(0,0);
     eyeRenderViewport[0].Size = Sizei(renderTargetSize.w / 2, renderTargetSize.h);
@@ -342,13 +346,8 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		backgroundTarget.getTextureReference().draw(toOf(eyeRenderViewport[eye]));
 		glPopAttrib();
 	}
-	
-    /*headPose[eye] = ovrHmd_GetEyePoses(hmd, unsigned int frameIndex, ovrVector3f hmdToEyeViewOffset[2],
-                    ovrPosef outEyePoses[2], ovrTrackingState* outHmdTrackingState);
-    
-    xxx mattebb replace with ovrHmdGetEyePoses
-    */
-    headPose[eye] = ovrHmd_GetHmdPosePerEye(hmd, eye);
+	   
+    ovrHmd_GetEyePoses(hmd, frameIndex, hmdToEyeViewOffsets, headPose, NULL);
 
 	ofViewport(toOf(eyeRenderViewport[eye]));
 
@@ -462,7 +461,7 @@ void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
 	
-	frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
+	frameTiming = ovrHmd_BeginFrameTiming(hmd, frameIndex++);
 	insideFrame = true;
 
 	renderTarget.begin();

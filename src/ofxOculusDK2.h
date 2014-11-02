@@ -139,6 +139,9 @@ class ofxOculusDK2
 	ofVboMesh			eyeMesh[2];
 	ovrPosef headPose[2];
 	ovrFrameTiming frameTiming;// = ovrHmd_BeginFrameTiming(hmd, 0);
+    unsigned int frameIndex;
+    
+    ovrVector3f hmdToEyeViewOffsets[2];
 
 	void initializeClientRenderer();
 
