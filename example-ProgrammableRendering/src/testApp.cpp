@@ -35,7 +35,7 @@ void testApp::setup()
     cam.setAutoDistance(false);
 	cam.begin();
 	cam.end();
-    cam.setGlobalPosition(0, 1.9, -3);
+    //cam.setGlobalPosition(0, 1.9, -3);
     //cam.lookAt(ofVec3f(0));
 }
 
@@ -92,10 +92,8 @@ void testApp::setupSpheres() {
 void testApp::draw()
 {
 	if(oculusRift.isSetup()){
-        //cam.begin();
-        
-        /*
-		if(showOverlay){
+
+		if(0 && showOverlay){
 			
 			oculusRift.beginOverlay(-230, 320,240);
 			ofRectangle overlayRect = oculusRift.getOverlayRectangle();
@@ -118,7 +116,7 @@ void testApp::draw()
 			ofPopStyle();
 			oculusRift.endOverlay();
 		}
-        */
+
         ofSetColor(255);
 		glEnable(GL_DEPTH_TEST);
 
@@ -151,8 +149,14 @@ void testApp::drawScene()
 	
     //ofPushMatrix();
 	//ofRotate(90, 0, 0, -1);
-	ofDrawBox(5.0f, 0.1f, 5.0f);
+// ofDrawBox(5.0f, 0.1f, 5.0f);
 	//ofPopMatrix();
+
+    ofPushMatrix();
+	ofRotate(90, 0, 0, -1);
+    ofDrawGridPlane(10.0f, 2.0f, false );
+	ofPopMatrix();
+
     
 	ofPushStyle();
 	//ofNoFill();

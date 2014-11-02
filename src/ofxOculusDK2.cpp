@@ -323,7 +323,7 @@ ofMatrix4x4 ofxOculusDK2::getViewMatrix(ovrEyeType eye) {
     ofMatrix4x4 viewAdjust;
     
     // pre-transform offset for IPD
-    viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+    viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].HmdToEyeViewOffset) );
     
     // head orientation and position
     ofMatrix4x4 hmdView =   ofMatrix4x4::newRotationMatrix( toOf(headPose[eye].Orientation)) * \
@@ -343,7 +343,12 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		glPopAttrib();
 	}
 	
-    headPose[eye] = ovrHmd_GetEyePose(hmd, eye);
+    /*headPose[eye] = ovrHmd_GetEyePoses(hmd, unsigned int frameIndex, ovrVector3f hmdToEyeViewOffset[2],
+                    ovrPosef outEyePoses[2], ovrTrackingState* outHmdTrackingState);
+    
+    xxx mattebb replace with ovrHmdGetEyePoses
+    */
+    headPose[eye] = ovrHmd_GetHmdPosePerEye(hmd, eye);
 
 	ofViewport(toOf(eyeRenderViewport[eye]));
 
@@ -465,9 +470,6 @@ void ofxOculusDK2::beginLeftEye(){
 	
 	ofPushView();
 	ofPushMatrix();
-
-//    baseCamera->begin();
-//    baseCamera->end();
     
 	setupEyeParams(ovrEye_Left);
     
@@ -546,7 +548,10 @@ ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrie
 	}
 
     ofRectangle viewport = getOculusViewport();
-
+    
+    ofMatrix4x4 projectedLeft = getViewMatrix(ovrEye_Left) * getProjectionMatrix(ovrEye_Right);
+    
+/*
     if (considerHeadOrientation) {
         // We'll combine both left and right eye projections to get a midpoint.
 //        OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams(OVR::Util::Render::StereoEye_Left);
@@ -570,8 +575,9 @@ ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrie
                           (1.0f - cameraXYZ.y) / 2.0f * viewport.height + viewport.y,
                           cameraXYZ.z);        
         return screenXYZ;
+
     }
-    
+     */
 	return baseCamera->worldToScreen(worldPosition, viewport);
 }
 
