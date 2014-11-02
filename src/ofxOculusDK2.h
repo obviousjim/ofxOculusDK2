@@ -143,7 +143,6 @@ class ofxOculusDK2
 
     Sizei               windowSize;
     
-
 	OVR::Util::Render::StereoConfig stereo;
 	float renderScale;
 	ofMesh overlayMesh;

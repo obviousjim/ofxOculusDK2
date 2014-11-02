@@ -72,7 +72,7 @@ static const char* OculusWarpVert = GLSL(120,
 static const char* OculusWarpFrag = GLSL(120,
 	uniform sampler2DRect Texture;
 	uniform vec2 TextureScale;
-
+	uniform float fade;
 	varying vec4 oColor;
 	varying vec2 oTexCoord0;
 	varying vec2 oTexCoord1;
@@ -83,7 +83,7 @@ static const char* OculusWarpFrag = GLSL(120,
 	  gl_FragColor.r = oColor.r * texture2DRect(Texture, oTexCoord0 * TextureScale).r;
 	  gl_FragColor.g = oColor.g * texture2DRect(Texture, oTexCoord1 * TextureScale).g;
 	  gl_FragColor.b = oColor.b * texture2DRect(Texture, oTexCoord2 * TextureScale).b;
-	  gl_FragColor.a = 1.0;
+	  gl_FragColor.a = fade;
 	}
 );
 
@@ -430,7 +430,6 @@ void ofxOculusDK2::reloadShader(){
 
 void ofxOculusDK2::beginBackground(){
 	bUseBackground = true;
-	insideFrame = true;
     backgroundTarget.begin();
     ofClear(0.0, 0.0, 0.0);
     ofPushView();
@@ -483,7 +482,15 @@ void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
 	
+	if(insideFrame){
+		//insideFrame = false;
+		ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
+		ovrHmd_EndFrameTiming(hmd);		
+		//return;
+	}
+
 	frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
+
 	insideFrame = true;
 
 	renderTarget.begin();
@@ -497,7 +504,8 @@ void ofxOculusDK2::beginLeftEye(){
 
 void ofxOculusDK2::endLeftEye(){
 	if(!bSetup) return;
-	
+
+
 	if(bUseOverlay){
 		renderOverlay();
 	}
@@ -509,6 +517,7 @@ void ofxOculusDK2::endLeftEye(){
 void ofxOculusDK2::beginRightEye(){
 	if(!bSetup) return;
 	
+
 	ofPushView();
 	ofPushMatrix();
 	
@@ -517,6 +526,7 @@ void ofxOculusDK2::beginRightEye(){
 
 void ofxOculusDK2::endRightEye(){
 	if(!bSetup) return;
+
 
 	if(bUseOverlay){
 		renderOverlay();
@@ -681,6 +691,7 @@ void ofxOculusDK2::draw(){
 	ofDisableDepthTest();
     ofEnableAlphaBlending();
 	distortionShader.begin();
+	distortionShader.setUniform1f("fade", ofGetStyle().color.a / 255.);
 	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
 	distortionShader.setUniform2f("TextureScale", 
 		renderTarget.getTextureReference().getWidth(), 
