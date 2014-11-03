@@ -16,6 +16,7 @@
 using namespace OVR;
 
 #include "OVR_CAPI.h"
+#include "OVR_CAPI_GL.h"
 
 #include "Util/Util_Render_Stereo.h"
 using namespace OVR::Util::Render;
@@ -62,6 +63,7 @@ class ofxOculusDK2
 	void endRightEye();
 	
 	void draw();
+    void drawSDK();
     
     void setUsePredictedOrientation(bool usePredicted);
 	bool getUsePredictiveOrientation();
@@ -140,6 +142,8 @@ class ofxOculusDK2
 	ovrPosef headPose[2];
 	ovrFrameTiming frameTiming;// = ovrHmd_BeginFrameTiming(hmd, 0);
     unsigned int frameIndex;
+    
+    ovrTexture          EyeTexture[2];
     
     ovrVector3f hmdToEyeViewOffsets[2];
 

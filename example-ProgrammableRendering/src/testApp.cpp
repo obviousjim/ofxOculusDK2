@@ -133,7 +133,8 @@ void testApp::draw()
 		drawScene();
 		oculusRift.endRightEye();
 		
-		oculusRift.draw();
+		//oculusRift.draw();
+        oculusRift.drawSDK();
 		
 		glDisable(GL_DEPTH_TEST);
         
