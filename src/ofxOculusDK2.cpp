@@ -324,17 +324,18 @@ ofMatrix4x4 ofxOculusDK2::getProjectionMatrix(ovrEyeType eye) {
 ofMatrix4x4 ofxOculusDK2::getViewMatrix(ovrEyeType eye) {
 
     ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix();
-    ofMatrix4x4 viewAdjust;
+    //ofMatrix4x4 viewAdjust;
     
     // pre-transform offset for IPD
-    viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].HmdToEyeViewOffset) );
+    //viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].HmdToEyeViewOffset) );
     
     // head orientation and position
     ofMatrix4x4 hmdView =   ofMatrix4x4::newRotationMatrix( toOf(headPose[eye].Orientation)) * \
     ofMatrix4x4::newTranslationMatrix( toOf(headPose[eye].Position));
     
     // final multiplication of everything
-    return viewAdjust * hmdView.getInverse() * baseCameraMatrix;
+    //return viewAdjust * hmdView.getInverse() * baseCameraMatrix;
+    return hmdView.getInverse() * baseCameraMatrix;
 }
 
 void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
