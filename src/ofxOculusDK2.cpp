@@ -165,9 +165,15 @@ ofxOculusDK2::~ofxOculusDK2(){
 
 bool ofxOculusDK2::setup(){
 	ofFbo::Settings settings;
-	settings.numSamples = 4;
+	//settings.numSamples = 4;
+    settings.numSamples = 0;
 	settings.internalformat = GL_RGBA;
     settings.useDepth = true;
+    settings.textureTarget = GL_TEXTURE_2D;
+    settings.minFilter = GL_LINEAR;
+    settings.maxFilter = GL_LINEAR;
+    settings.wrapModeHorizontal = GL_CLAMP_TO_EDGE;
+    settings.wrapModeVertical = GL_CLAMP_TO_EDGE;
 	return setup(settings);
 }
 
@@ -192,12 +198,14 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		}
         else {
             ofLogNotice("ofxOculusDK2::setup") << "HMD not found, creating simulated device.";
+            printf("simulated hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
             bUsingDebugHmd = true;
         }
 	}
     
     if (hmd->HmdCaps & ovrHmdCap_ExtendDesktop) {
         windowSize = hmd->Resolution;
+        printf("hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
     }
     else {
         // In Direct App-rendered mode, we can use smaller window size,
@@ -244,28 +252,30 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     eyeRenderViewport[1].Pos  = Vector2i((renderTargetSize.w + 1) / 2, 0);
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
+    cout << "targetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
+    
     // mattebb SDK rendering test
     ovrRenderAPIConfig config = ovrRenderAPIConfig();
     config.Header.API = ovrRenderAPI_OpenGL;
-    config.Header.RTSize = windowSize;
+    config.Header.RTSize = renderTargetSize;
     config.Header.Multisample = 0; // configurable ?
     
+    //eyeFov
     if (!ovrHmd_ConfigureRendering( hmd, &config, distortionCaps, eyeFov, eyeRenderDesc ))
     {
         // Fail exit? TBD
         return;
     }
+    
     // Store texture pointers that will be passed for rendering.
     // Same texture is used, but with different viewports.
     memset(EyeTexture, 0, 2 * sizeof(ovrGLTexture));
-//    EyeTexture[0]                       = RenderTargets[Rendertarget_BothEyes].OvrTex;
     EyeTexture[0].Header.API            = ovrRenderAPI_OpenGL;
     EyeTexture[0].Header.TextureSize    = renderTargetSize;
     EyeTexture[0].Header.RenderViewport = eyeRenderViewport[0];
 
-    //    EyeTexture[1]                       = RenderTargets[Rendertarget_BothEyes].OvrTex;
-    EyeTexture[1].Header.API            = ovrRenderAPI_OpenGL;
-    EyeTexture[1].Header.TextureSize    = renderTargetSize;
+    // same texture, shifted viewport
+    EyeTexture[1] = EyeTexture[0];
     EyeTexture[1].Header.RenderViewport = eyeRenderViewport[1];
     
     // set the tex IDs from the ofFbo
@@ -273,10 +283,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
 
     // END mattebb SDK rendering test
-    printf("id: %d", ((ovrGLTexture &)EyeTexture[0]).OGL.TexId);
-    
+
 	//Generate distortion mesh for each eye
-    
 	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
 		// Allocate & generate distortion mesh vertices.
 		ovrDistortionMesh meshData;
@@ -380,7 +388,9 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 		backgroundTarget.getTextureReference().draw(toOf(eyeRenderViewport[eye]));
 		glPopAttrib();
 	}
-	   
+    
+    // xxx mattebb
+    frameIndex=0;
     ovrHmd_GetEyePoses(hmd, frameIndex, hmdToEyeViewOffsets, headPose, NULL);
 
 	ofViewport(toOf(eyeRenderViewport[eye]));
@@ -496,7 +506,7 @@ void ofxOculusDK2::beginLeftEye(){
 	if(!bSetup) return;
 	
 	//frameTiming = ovrHmd_BeginFrameTiming(hmd, ++frameIndex);
-    frameTiming = ovrHmd_BeginFrame(hmd, ++frameIndex);
+    frameTiming = ovrHmd_BeginFrame(hmd, 0);
 	insideFrame = true;
 
 	renderTarget.begin();
@@ -692,12 +702,14 @@ void ofxOculusDK2::drawSDK(){
 	
 	if(!insideFrame) return;
 
-    ofPixels dp;
-    renderTarget.readToPixels(dp);
-    debugImage.setFromPixels(dp);
-    debugImage.saveImage("debug.png");
+//    ofPixels dp;
+//    renderTarget.readToPixels(dp);
+//    debugImage.setFromPixels(dp);
+//    debugImage.saveImage("debug.png");
     
     ovrHmd_EndFrame(hmd, headPose, EyeTexture);
+    
+    
     ofEnableDepthTest();
     
 	bUseOverlay = false;
