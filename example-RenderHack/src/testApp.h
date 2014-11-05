@@ -3,6 +3,16 @@
 #include "ofMain.h"
 #include "ofxOculusDK2.h"
 
+extern ovrHmd hmd;
+extern GLuint frameBuffer;
+extern GLuint MVPMatrixLocation;
+extern GLuint positionLocation;
+extern ovrEyeRenderDesc eyeRenderDesc[2];
+extern ovrRecti eyeRenderViewport[2];
+extern GLuint vertexShader;
+extern GLuint vertexArray;
+extern ovrGLTexture eyeTexture[2];
+
 typedef struct{
 	ofColor color;
 	ofVec3f pos;

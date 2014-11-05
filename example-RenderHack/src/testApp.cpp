@@ -17,31 +17,8 @@ void testApp::setup()
         //int x = SDL_WINDOWPOS_CENTERED;
         //int y = SDL_WINDOWPOS_CENTERED;
        // Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
-	int x = ofGetWidth()/2;
-	int y = ofGetHeight()/2;
-
-    bool debug = false;
  
-    ovr_Initialize();
- 
-    hmd = ovrHmd_Create(0);
- 
-    if (hmd == NULL)
-    {
-            hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
- 
-            debug = true;
-    }
- 
-    if (debug == false)
-    {
-            x = hmd->WindowsPos.x;
-            y = hmd->WindowsPos.y;
-            //flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-    }
- 
-    int w = hmd->Resolution.w;
-    int h = hmd->Resolution.h;
+   
  
     // SDL_Window *window = SDL_CreateWindow("Oculus Rift SDL2 OpenGL Demo", x, y, w, h, flags);
     //SDL_GLContext context = SDL_GL_CreateContext(window); 
