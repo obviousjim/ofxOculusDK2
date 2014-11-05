@@ -1,3 +1,4 @@
+#include "ofAppGLFWWindow.h"
 #include "testApp.h"
 
 //--------------------------------------------------------------
@@ -8,7 +9,7 @@ int main(){
 
     bool debug = false;
 
-	 ovr_Initialize();
+	ovr_Initialize();
  
     hmd = ovrHmd_Create(0);
  
@@ -32,7 +33,14 @@ int main(){
 	// set width, height, mode (OF_WINDOW or OF_FULLSCREEN)
 	//ofSetCurrentRenderer(ofGLProgrammableRenderer::TYPE);
 
+	//ofAppGLFWWindow window;
+	//window.setDoubleBuffering(false);
+	//ofSetupOpenGL(&window, w, h, OF_WINDOW);
+	//ofSetWindowPosition(x, y);
 	ofSetupOpenGL(w, h, OF_WINDOW);
-	ofSetWindowPosition(x, y);
+
 	ofRunApp(new testApp()); // start the app
+
+	ovrHmd_Destroy(hmd);
+	ovr_Shutdown();
 }

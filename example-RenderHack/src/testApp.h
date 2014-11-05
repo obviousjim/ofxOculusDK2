@@ -1,7 +1,13 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxOculusDK2.h"
+
+#define OVR_OS_WIN32
+#include "OVR_CAPI_GL.h"
+#include "Kernel/OVR_Math.h"
+using namespace OVR;
+
+//#include "ofxOculusDK2.h"
 
 extern ovrHmd hmd;
 extern GLuint frameBuffer;
@@ -27,6 +33,8 @@ class testApp : public ofBaseApp
   public:
 	
 	void setup();
+	void exit();
+
 	void update();
 	void draw();
 	
@@ -42,7 +50,7 @@ class testApp : public ofBaseApp
 	void dragEvent(ofDragInfo dragInfo);
 	void gotMessage(ofMessage msg);
 
-	ofxOculusDK2		oculusRift;
+	//ofxOculusDK2		oculusRift;
 
 	ofLight				light;
 	ofEasyCam			cam;
