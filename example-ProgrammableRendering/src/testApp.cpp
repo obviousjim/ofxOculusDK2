@@ -35,7 +35,7 @@ void testApp::setup()
     cam.setAutoDistance(false);
 	cam.begin();
 	cam.end();
-    //cam.setGlobalPosition(0, 1.9, -3);
+    cam.setGlobalPosition(0, 1.9, 3);
     //cam.lookAt(ofVec3f(0));
 }
 

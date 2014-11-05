@@ -387,7 +387,7 @@ ofMatrix4x4 ofxOculusDK2::getViewMatrix(ovrEyeType eye) {
     
     // final multiplication of everything
     //return viewAdjust * hmdView.getInverse() * baseCameraMatrix;
-    return hmdView.getInverse() * baseCameraMatrix;
+    return baseCameraMatrix * hmdView.getInverse();
 }
 
 void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
