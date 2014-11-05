@@ -339,7 +339,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings, bool sdkRendering){
 }
 
 bool ofxOculusDK2::isSetup(){
-	return false && bSetup;
+	return bSetup;
 }
 
 void ofxOculusDK2::reset(){
