@@ -12,6 +12,8 @@
 
 #include <stdio.h>  // XXX mattebb for testing, printf
 
+#define SDK_RENDER 1
+
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
 	uniform vec2 EyeToSourceUVScale;
@@ -218,15 +220,13 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		ovrTrackingCap_Orientation | 
 		ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
-	
-	unsigned int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive;
-	//int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette;
 
-	Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
-	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, hmd->DefaultEyeFov[1], 1.0f);
 	eyeFov[0] = hmd->DefaultEyeFov[0];
 	eyeFov[1] = hmd->DefaultEyeFov[1];
-
+    
+    Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], 1.0f);
+	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], 1.0f);
+    
 	renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
 	renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
 
@@ -234,12 +234,11 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	render_settings.height = renderTargetSize.h;
     
     renderTarget.allocate(render_settings);
-	//renderTarget.allocate(renderTargetSize.w,renderTargetSize.h, GL_RGB, 4);
     backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
 
-	backgroundTarget.begin();
-    ofClear(0.0, 0.0, 0.0);
-	backgroundTarget.end();
+//	backgroundTarget.begin();
+//    ofClear(0.0, 0.0, 0.0);
+//	backgroundTarget.end();
 
 	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
 	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
@@ -252,20 +251,14 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     eyeRenderViewport[1].Pos  = Vector2i((renderTargetSize.w + 1) / 2, 0);
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
-    cout << "targetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
+    unsigned int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive | ovrDistortionCap_SRGB;
     
-    // mattebb SDK rendering test
+#ifdef SDK_RENDER
+    // END mattebb SDK rendering test
     ovrRenderAPIConfig config = ovrRenderAPIConfig();
     config.Header.API = ovrRenderAPI_OpenGL;
-    config.Header.RTSize = renderTargetSize;
+    config.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
     config.Header.Multisample = 0; // configurable ?
-    
-    //eyeFov
-    if (!ovrHmd_ConfigureRendering( hmd, &config, distortionCaps, eyeFov, eyeRenderDesc ))
-    {
-        // Fail exit? TBD
-        return;
-    }
     
     // Store texture pointers that will be passed for rendering.
     // Same texture is used, but with different viewports.
@@ -282,8 +275,23 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     ((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
     ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
 
-    // END mattebb SDK rendering test
+    cout << "renderTargetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
+    cout << "eye tex 0  viewpos: " << EyeTexture[0].Header.RenderViewport.Pos.x << " " << EyeTexture[0].Header.RenderViewport.Pos.y << endl;
+    cout << "eye tex 0 size: " << EyeTexture[0].Header.RenderViewport.Size.w << " " << EyeTexture[0].Header.RenderViewport.Size.h << endl;
+    cout << "eye tex 1 pos: " << EyeTexture[1].Header.RenderViewport.Pos.x << " " << EyeTexture[1].Header.RenderViewport.Pos.y << endl;
+    cout << "eye tex 1 size: " << EyeTexture[1].Header.RenderViewport.Size.w << " " << EyeTexture[1].Header.RenderViewport.Size.h << endl;
+    
+    
 
+    
+    if (!ovrHmd_ConfigureRendering( hmd, &config, distortionCaps, eyeFov, eyeRenderDesc ))
+    {
+        // Fail exit? TBD
+        return;
+    }
+    
+    // END mattebb SDK rendering test
+#else
 	//Generate distortion mesh for each eye
 	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
 		// Allocate & generate distortion mesh vertices.
@@ -331,9 +339,12 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		ovrHmd_DestroyDistortionMesh( &meshData );
 	}
     
+    reloadShader();
+    
+#endif
+
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
-	reloadShader();
 	bSetup = true;
 	return true;
 }
@@ -505,12 +516,16 @@ void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
 	
-	//frameTiming = ovrHmd_BeginFrameTiming(hmd, ++frameIndex);
+#ifdef SDK_RENDER
     frameTiming = ovrHmd_BeginFrame(hmd, 0);
+#else
+    frameTiming = ovrHmd_BeginFrameTiming(hmd, ++frameIndex);
+#endif
+    
 	insideFrame = true;
 
 	renderTarget.begin();
-	ofClear(1,0,0);
+	ofClear(0,0,0);
 	
 	ofPushView();
 	ofPushMatrix();
@@ -696,7 +711,8 @@ ofVec2f ofxOculusDK2::gazePosition2D(){
                    ofMap(angles.z, 90, -90, 0, ofGetHeight()));
 }
 
-void ofxOculusDK2::drawSDK(){
+#ifdef SDK_RENDER
+void ofxOculusDK2::draw(){
 	
 	if(!bSetup) return;
 	
@@ -709,14 +725,11 @@ void ofxOculusDK2::drawSDK(){
     
     ovrHmd_EndFrame(hmd, headPose, EyeTexture);
     
-    
-    ofEnableDepthTest();
-    
-	bUseOverlay = false;
+    bUseOverlay = false;
 	bUseBackground = false;
 	insideFrame = false;
 }
-
+#else
 void ofxOculusDK2::draw(){
 	
 	if(!bSetup) return;
@@ -760,10 +773,7 @@ void ofxOculusDK2::draw(){
     
     debugShader.end();
     */
-    
-    
-    
-    
+   
 	///JG START HERE 
 	// Prepare for distortion rendering. 
 	ofDisableDepthTest();
@@ -799,6 +809,7 @@ void ofxOculusDK2::draw(){
 	bUseBackground = false;
 	insideFrame = false;
 }
+#endif
 
 void ofxOculusDK2::setUsePredictedOrientation(bool usePredicted){
 	bUsePredictedOrientation = usePredicted;
