@@ -10,8 +10,6 @@
 
 #include "ofxOculusDK2.h"
 
-#define OCULUS_SDK_RENDERING 1
-
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
 	uniform vec2 EyeToSourceUVScale;
@@ -128,6 +126,7 @@ ovrVector3f toOVR(const ofVec3f& v ){
 ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
     insideFrame = false;
+	bUseSdkRenderer  = false;
 
     bUsingDebugHmd = false;
     startTrackingCaps = 0;
@@ -162,21 +161,22 @@ ofxOculusDK2::~ofxOculusDK2(){
 	}
 }
 
-bool ofxOculusDK2::setup(){
+bool ofxOculusDK2::setup(bool sdkRendering){
 	ofFbo::Settings settings;
 	settings.numSamples = 4;
 	settings.internalformat = GL_RGBA;
     settings.useDepth = true;
-	return setup(settings);
+	return setup(settings, sdkRendering);
 }
 
-bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
+bool ofxOculusDK2::setup(ofFbo::Settings& render_settings, bool sdkRendering){
 	
 	if(bSetup){
 		ofLogError("ofxOculusDK2::setup") << "Already set up";
 		return false;
 	}
 
+	bUseSdkRenderer = sdkRendering;
     // Oculus HMD & Sensor Initialization
     ovr_Initialize();
     
@@ -205,19 +205,19 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     }
     
 
-	ovrhmd_EnableHSWDisplaySDKRender(hmd, 0);
+//	ovrhmd_EnableHSWDisplaySDKRender(hmd, 0);
 	
 // Start the sensor which provides the Rift’s pose and motion.
-	/*
 	ovrHmd_ConfigureTracking(hmd, 
 		ovrTrackingCap_Orientation | 
 		ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
-	*/
+
+	/*
 	ovrHmd_ConfigureTracking(hmd, 
 		ovrTrackingCap_Orientation | 
 		ovrTrackingCap_MagYawCorrection, 0);
-
+		*/
 	int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette;
 
 	Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, hmd->DefaultEyeFov[0], 1.0f);
@@ -247,99 +247,91 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     eyeRenderViewport[1].Pos  = Vector2i((renderTargetSize.w + 1) / 2, 0);
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
-#ifdef OCULUS_SDK_RENDERING
+	if(bUseSdkRenderer){
+		
+		bSetup = true;
 
-	// Configure OpenGL.
-	ovrGLConfig cfg;
-
-	cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-	cfg.OGL.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
-	cfg.OGL.Header.Multisample = 1;
-	cfg.OGL.Window = ofGetWin32Window();
-	cfg.OGL.DC = NULL;
-
-	//cfg.OGL.DC = ofGetWGLContext();
-	ovrBool resultConfig = ovrHmd_ConfigureRendering(hmd, &cfg.Config, distortionCaps, eyeFov, eyeRenderDesc);
-
-	if (resultConfig) {
 		// Direct rendering from a window handle to the Hmd.
 		// Not required if ovrHmdCap_ExtendDesktop flag is set.
-		ovrBool resultAttach = ovrHmd_AttachToWindow(hmd, ofGetWin32Window(), NULL, NULL);
-
-		if (resultAttach) {
-
-			bSetup = true;
-			eyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
-			eyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
-			eyeTexture[0].OGL.Header.RenderViewport = eyeRenderViewport[0];
-			eyeTexture[0].OGL.TexId = renderTarget.getTextureReference().getTextureData().textureID;
+		eyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
+		eyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
+		eyeTexture[0].OGL.Header.RenderViewport = eyeRenderViewport[0];
+		eyeTexture[0].OGL.TexId = renderTarget.getTextureReference().getTextureData().textureID;
 			
-			eyeTexture[1] = eyeTexture[0];
-			eyeTexture[1].OGL.Header.RenderViewport = eyeRenderViewport[1];		}
-		else {
+		eyeTexture[1] = eyeTexture[0];
+		eyeTexture[1].OGL.Header.RenderViewport = eyeRenderViewport[1];
+		// Configure OpenGL.
+		ovrGLConfig cfg;
+		cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
+		cfg.OGL.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
+		cfg.OGL.Header.Multisample = 1;
+		cfg.OGL.Window = ofGetWin32Window();
+		cfg.OGL.DC = GetDC(cfg.OGL.Window); // ofGetWGLContext();
+		//cfg.OGL.DC = NULL;
+
+		ovrHmd_ConfigureRendering(hmd, &cfg.Config, distortionCaps, eyeFov, eyeRenderDesc);
+
+		ovrHmd_SetEnabledCaps(hmd, ovrHmdCap_LowPersistence | ovrHmdCap_DynamicPrediction);
+
+		ovrBool resultAttach = ovrHmd_AttachToWindow(hmd, ofGetWin32Window(), NULL, NULL);
+		if (!resultAttach) {
 			ofLogError("ofxOculusDK2::setup") << "ovrHmd_AttachToWindow failed!"; 
 			bSetup = false;
 		}
+
 	}
 	else {
-		ofLogError("ofxOculusDK2::setup") << "ovrHmd_ConfigureRendering failed!";
-		bSetup = false;
-	}
-	
-#else
-	//Generate distortion mesh for each eye
-    
-	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
-		// Allocate & generate distortion mesh vertices.
-		ovrDistortionMesh meshData;
+		//Generate distortion mesh for each eye  
+		for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
+			// Allocate & generate distortion mesh vertices.
+			ovrDistortionMesh meshData;
 
-		ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, distortionCaps, &meshData);
-		ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], UVScaleOffset[eyeNum]);
+			ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, distortionCaps, &meshData);
+			ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], UVScaleOffset[eyeNum]);
 
-		// Now parse the vertex data and create a render ready vertex buffer from it
-		ofVboMesh& v = eyeMesh[eyeNum];
-		v.clear();
-		v.getVertices().resize(meshData.VertexCount);
-		v.getColors().resize(meshData.VertexCount);
-		v.getNormals().resize(meshData.VertexCount);
-//		v.getTexCoords().resize(meshData.VertexCount);
-		ovrDistortionVertex * ov = meshData.pVertexData;
-		for( unsigned vertNum = 0; vertNum < meshData.VertexCount; vertNum++ ){
+			// Now parse the vertex data and create a render ready vertex buffer from it
+			ofVboMesh& v = eyeMesh[eyeNum];
+			v.clear();
+			v.getVertices().resize(meshData.VertexCount);
+			v.getColors().resize(meshData.VertexCount);
+			v.getNormals().resize(meshData.VertexCount);
+	//		v.getTexCoords().resize(meshData.VertexCount);
+			ovrDistortionVertex * ov = meshData.pVertexData;
+			for( unsigned vertNum = 0; vertNum < meshData.VertexCount; vertNum++ ){
 			
-			v.getVertices()[vertNum].x = ov->ScreenPosNDC.x;
-			v.getVertices()[vertNum].y = ov->ScreenPosNDC.y;
-			//cout << vertNum<< "/" << meshData.VertexCount << "SCREEN POS IS " << ov->ScreenPosNDC.x << " " <<  ov->ScreenPosNDC.y << endl;
-			v.getVertices()[vertNum].z = ov->TimeWarpFactor;
+				v.getVertices()[vertNum].x = ov->ScreenPosNDC.x;
+				v.getVertices()[vertNum].y = ov->ScreenPosNDC.y;
+				//cout << vertNum<< "/" << meshData.VertexCount << "SCREEN POS IS " << ov->ScreenPosNDC.x << " " <<  ov->ScreenPosNDC.y << endl;
+				v.getVertices()[vertNum].z = ov->TimeWarpFactor;
 
-			v.getNormals()[vertNum].x = ov->TanEyeAnglesR.x;
-			v.getNormals()[vertNum].y = ov->TanEyeAnglesR.y;
-			v.getNormals()[vertNum].z = ov->VignetteFactor;
+				v.getNormals()[vertNum].x = ov->TanEyeAnglesR.x;
+				v.getNormals()[vertNum].y = ov->TanEyeAnglesR.y;
+				v.getNormals()[vertNum].z = ov->VignetteFactor;
 
-			v.getColors()[vertNum].r = ov->TanEyeAnglesG.x;
-			v.getColors()[vertNum].g = ov->TanEyeAnglesG.y;
-			v.getColors()[vertNum].b = ov->TanEyeAnglesB.x;
-			v.getColors()[vertNum].a = ov->TanEyeAnglesB.y;
+				v.getColors()[vertNum].r = ov->TanEyeAnglesG.x;
+				v.getColors()[vertNum].g = ov->TanEyeAnglesG.y;
+				v.getColors()[vertNum].b = ov->TanEyeAnglesB.x;
+				v.getColors()[vertNum].a = ov->TanEyeAnglesB.y;
 			
-			ov++;
+				ov++;
+			}
+
+			//Register this mesh with the renderer
+			v.getIndices().resize(meshData.IndexCount);
+
+			unsigned short * oi = meshData.pIndexData;
+			for(int i = 0; i < meshData.IndexCount; i++){
+				v.getIndices()[i] = *oi;
+				oi++;
+			}
+
+			ovrHmd_DestroyDistortionMesh( &meshData );
 		}
 
-		//Register this mesh with the renderer
-		v.getIndices().resize(meshData.IndexCount);
+		reloadShader();
 
-		unsigned short * oi = meshData.pIndexData;
-		for(int i = 0; i < meshData.IndexCount; i++){
-			v.getIndices()[i] = *oi;
-			oi++;
-		}
-
-		ovrHmd_DestroyDistortionMesh( &meshData );
+		bSetup = true;
 	}
-
-	reloadShader();
-
-	bSetup = true;
-
-#endif
 
 	bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
@@ -347,7 +339,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 }
 
 bool ofxOculusDK2::isSetup(){
-	return bSetup;
+	return false && bSetup;
 }
 
 void ofxOculusDK2::reset(){
@@ -399,14 +391,17 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
     headPose[eye] = ovrHmd_GetHmdPosePerEye(hmd, eye);
 
 	ofViewport(toOf(eyeRenderViewport[eye]));
-
+	
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
 	ofLoadMatrix( getProjectionMatrix(eye) );
     
+	//cout << getViewMatrix(eye) << endl;
+
 	ofSetMatrixMode(OF_MATRIX_MODELVIEW);
 	ofLoadIdentityMatrix();
     ofLoadMatrix( getViewMatrix(eye) );
+	
 }
 
 ofRectangle ofxOculusDK2::getOculusViewport(){
@@ -509,11 +504,13 @@ void ofxOculusDK2::endOverlay(){
 void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
-#ifdef OCULUS_SDK_RENDERING
-	frameTiming = ovrHmd_BeginFrame(hmd, 0);
-#else
-	frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
-#endif
+
+	if(bUseSdkRenderer){
+		frameTiming = ovrHmd_BeginFrame(hmd, 0);
+	}
+	else{
+		frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
+	}
 	insideFrame = true;
 
 	renderTarget.begin();
@@ -712,41 +709,46 @@ void ofxOculusDK2::draw(){
 		return;
 	}
 
-#ifdef OCULUS_SDK_RENDERING	ovrHmd_EndFrame(hmd, headPose, &eyeTexture[0].Texture);
-#else
-	ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
-
-	///JG START HERE 
-	// Prepare for distortion rendering. 
-	ofDisableDepthTest();
-    ofEnableAlphaBlending();
-	distortionShader.begin();
-	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
-	distortionShader.setUniform2f("TextureScale", 
-		renderTarget.getTextureReference().getWidth(), 
-		renderTarget.getTextureReference().getHeight());
-
-	for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++) {
-		// Setup shader constants
-		distortionShader.setUniform2f("EyeToSourceUVScale", UVScaleOffset[eyeIndex][0].x, 
-															UVScaleOffset[eyeIndex][0].y);
-		distortionShader.setUniform2f("EyeToSourceUVOffset", UVScaleOffset[eyeIndex][1].x, 
-															 UVScaleOffset[eyeIndex][1].y);
-		ovrMatrix4f timeWarpMatrices[2];
-		ovrHmd_GetEyeTimewarpMatrices(hmd, (ovrEyeType) eyeIndex, headPose[eyeIndex], timeWarpMatrices);
-		distortionShader.setUniformMatrix4f("EyeRotationStart", toOf(timeWarpMatrices[0]) );
-		distortionShader.setUniformMatrix4f("EyeRotationEnd", toOf(timeWarpMatrices[1]) );
-
-		eyeMesh[eyeIndex].draw();
+	if(bUseSdkRenderer){
+		ovrHmd_EndFrame(hmd, headPose, &eyeTexture[0].Texture);
 	}
-	distortionShader.end();
+	else{
+		ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
+
+		///JG START HERE 
+		// Prepare for distortion rendering. 
+		ofDisableDepthTest();
+		ofEnableAlphaBlending();
+		distortionShader.begin();
+		distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
+		distortionShader.setUniform2f("TextureScale", 
+			renderTarget.getTextureReference().getWidth(), 
+			renderTarget.getTextureReference().getHeight());
+
+		for (int eyeIndex = 0; eyeIndex < 2; eyeIndex++) {
+			// Setup shader constants
+			distortionShader.setUniform2f("EyeToSourceUVScale", UVScaleOffset[eyeIndex][0].x, 
+																UVScaleOffset[eyeIndex][0].y);
+			distortionShader.setUniform2f("EyeToSourceUVOffset", UVScaleOffset[eyeIndex][1].x, 
+																 UVScaleOffset[eyeIndex][1].y);
+			ovrMatrix4f timeWarpMatrices[2];
+			ovrHmd_GetEyeTimewarpMatrices(hmd, (ovrEyeType) eyeIndex, headPose[eyeIndex], timeWarpMatrices);
+			distortionShader.setUniformMatrix4f("EyeRotationStart", toOf(timeWarpMatrices[0]) );
+			distortionShader.setUniformMatrix4f("EyeRotationEnd", toOf(timeWarpMatrices[1]) );
+
+			eyeMesh[eyeIndex].draw();
+		}
+		distortionShader.end();
 	
-	/////////////////////
-	ovrHmd_EndFrameTiming(hmd);
-#endif
-	
+		/////////////////////
+		ovrHmd_EndFrameTiming(hmd);
+	}
+
 	ofEnableDepthTest();
 
+	if(ofGetKeyPressed('d')){
+		renderTarget.getTextureReference().draw(0,0);
+	}
 	bUseOverlay = false;
 	bUseBackground = false;
 	insideFrame = false;

@@ -41,8 +41,8 @@ class ofxOculusDK2
 	//and mix in the head transformation
 	ofCamera* baseCamera;
 	
-	bool setup();
-	bool setup(ofFbo::Settings& render_settings);
+	bool setup(bool sdkrendering = false);
+	bool setup(ofFbo::Settings& render_settings, bool sdkrendering = false);
 
 	bool isSetup();
 	void reset();
@@ -119,7 +119,8 @@ class ofxOculusDK2
   private:
 	bool bSetup;
     bool insideFrame;
-    bool bUsingDebugHmd;
+    bool bUseSdkRenderer;
+	bool bUsingDebugHmd;
     unsigned startTrackingCaps;
     
     bool bHmdSettingsChanged;
@@ -130,6 +131,7 @@ class ofxOculusDK2
 	bool bUsePredictedOrientation;
 	bool bUseBackground;
 	bool bUseOverlay;
+	
 	float overlayZDistance;
 
     ovrHmd              hmd;
@@ -141,8 +143,6 @@ class ofxOculusDK2
 	ovrPosef			headPose[2];
 	ovrGLTexture		eyeTexture[2]; //SDK rendering 
 	ovrFrameTiming frameTiming;// = ovrHmd_BeginFrameTiming(hmd, 0);
-
-	void initializeClientRenderer();
 
     Sizei               windowSize;
     
