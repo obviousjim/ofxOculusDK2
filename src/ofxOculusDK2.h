@@ -36,6 +36,9 @@ class ofxOculusDK2
 	ofxOculusDK2();
 	~ofxOculusDK2();
 	
+	static void initialize();
+
+
 	//set a pointer to the camera you want as the base perspective
 	//the oculus rendering will create a stereo pair from this camera
 	//and mix in the head transformation
@@ -118,6 +121,7 @@ class ofxOculusDK2
 	bool applyTranslation;
 
   private:
+	
 	bool bSetup;
     bool insideFrame;
     bool bUsingDebugHmd;
@@ -133,7 +137,9 @@ class ofxOculusDK2
 	bool bUseOverlay;
 	float overlayZDistance;
 
-    ovrHmd              hmd;
+	static bool bInitialized;
+	static ovrHmd hmd;
+
 	ovrFovPort			eyeFov[2];
 	ovrEyeRenderDesc	eyeRenderDesc[2];
 	ovrRecti			eyeRenderViewport[2];

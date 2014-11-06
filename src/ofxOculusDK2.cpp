@@ -10,6 +10,10 @@
 
 #include "ofxOculusDK2.h"
 
+//ofxOculusDK2::bInitialized = false;
+bool ofxOculusDK2::bInitialized = false;
+ovrHmd ofxOculusDK2::hmd = 0;
+
 #define SDK_RENDER 1
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
@@ -126,7 +130,8 @@ ovrVector3f toOVR(const ofVec3f& v ){
 }
 
 ofxOculusDK2::ofxOculusDK2(){
-    hmd = 0;
+
+
     insideFrame = false;
     frameIndex = 0;
 
@@ -163,6 +168,23 @@ ofxOculusDK2::~ofxOculusDK2(){
 	}
 }
 
+void ofxOculusDK2::initialize(){
+
+	int x = 0;
+	int y = 0;
+	bool debug = false;
+	bInitialized = true;
+
+	ovr_Initialize();
+ 
+	hmd = ovrHmd_Create(0);
+	if (hmd == NULL)
+	{
+		hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
+		debug = true;
+	}
+}
+
 bool ofxOculusDK2::setup(){
 	ofFbo::Settings settings;
 	//settings.numSamples = 4;
@@ -184,6 +206,11 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		return false;
 	}
 
+	if(!bInitialized){
+		initialize();
+	}
+
+	/*
     // Oculus HMD & Sensor Initialization
     ovr_Initialize();
     
@@ -202,7 +229,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
             bUsingDebugHmd = true;
         }
 	}
-    
+    */
+
     if (hmd->HmdCaps & ovrHmdCap_ExtendDesktop) {
         windowSize = hmd->Resolution;
         printf("hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
