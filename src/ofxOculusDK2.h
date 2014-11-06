@@ -120,6 +120,10 @@ class ofxOculusDK2
 	//allows you to disable moving the camera based on inner ocular distance
 	bool applyTranslation;
 
+
+	GLuint frameBuffer;
+GLuint renderBuffer;
+GLuint texture;
   private:
 	
 	bool bSetup;
@@ -149,7 +153,7 @@ class ofxOculusDK2
 	ovrFrameTiming frameTiming;// = ovrHmd_BeginFrameTiming(hmd, 0);
     unsigned int frameIndex;
     
-    ovrTexture          EyeTexture[2];
+    ovrGLTexture          eyeTexture[2];
     
     ovrVector3f hmdToEyeViewOffsets[2];
 

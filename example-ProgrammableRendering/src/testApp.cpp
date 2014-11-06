@@ -4,10 +4,11 @@
 //--------------------------------------------------------------
 void testApp::setup()
 {
-	ofBackground(0);
-	ofSetLogLevel( OF_LOG_VERBOSE );
-	ofSetVerticalSync( true );
-    ofEnableDepthTest();
+	ofSetBackgroundAuto(false);
+//	ofBackground(0);
+//.	ofSetLogLevel( OF_LOG_VERBOSE );
+//	ofSetVerticalSync( true );
+//    ofEnableDepthTest();
    
     //    ofSetWindowPosition(1920, 0);
     //    ofToggleFullscreen();

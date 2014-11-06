@@ -207,7 +207,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	}
 
 	if(!bInitialized){
-		initialize();
+		//initialize();
 	}
 
 	/*
@@ -231,8 +231,78 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	}
     */
 
+	eyeFov[0] = hmd->DefaultEyeFov[0];
+	eyeFov[1] = hmd->DefaultEyeFov[1];
+	Sizei recommendedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], 1.0f);
+    Sizei recommendedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], 1.0f);
+    
+
+    renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
+    renderTargetSize.h = max(recommendedTex0Size.h, recommendedTex1Size.h);
+ 
+    glGenFramebuffers(1, &frameBuffer);
+ 
+    glGenTextures(1, &texture);
+ 
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, renderTargetSize.w, renderTargetSize.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
+ 
+    glGenRenderbuffers(1, &renderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, renderTargetSize.w, renderTargetSize.h);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
+ 
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+		glDeleteFramebuffers(1, &frameBuffer);
+		glDeleteTextures(1, &texture);
+		glDeleteRenderbuffers(1, &renderBuffer);
+ 
+		ofLogError("Framebuffer failed!");
+		ofExit(0);
+    }
+ 
+    ovrFovPort eyeFov[2] = { hmd->DefaultEyeFov[0], hmd->DefaultEyeFov[1] };
+ 
+    eyeRenderViewport[0].Pos = Vector2i(0, 0);
+    eyeRenderViewport[0].Size = Sizei(renderTargetSize.w / 2, renderTargetSize.h);
+    eyeRenderViewport[1].Pos = Vector2i((renderTargetSize.w + 1) / 2, 0);
+    eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
+ 
+    eyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
+    eyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
+    eyeTexture[0].OGL.Header.RenderViewport = eyeRenderViewport[0];
+    eyeTexture[0].OGL.TexId = texture;
+ 
+    eyeTexture[1] = eyeTexture[0];
+    eyeTexture[1].OGL.Header.RenderViewport = eyeRenderViewport[1];
+ 
+    ovrGLConfig cfg;
+    cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
+    cfg.OGL.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
+    cfg.OGL.Header.Multisample = 1;
+    if (!(hmd->HmdCaps & ovrHmdCap_ExtendDesktop)) {
+		ovrHmd_AttachToWindow(hmd, ofGetWin32Window(), NULL, NULL);
+	}
+ 
+	cfg.OGL.Window = ofGetWin32Window();
+    cfg.OGL.DC = NULL;
+ 
+    ovrHmd_ConfigureRendering(hmd, &cfg.Config, ovrDistortionCap_Chromatic | ovrDistortionCap_Vignette | ovrDistortionCap_TimeWarp | ovrDistortionCap_Overdrive, eyeFov, eyeRenderDesc);
+    ovrHmd_SetEnabledCaps(hmd, ovrHmdCap_LowPersistence | ovrHmdCap_DynamicPrediction);
+    ovrHmd_ConfigureTracking(hmd, ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position, 0);
 
 
+    backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
+	backgroundTarget.begin();
+    ofClear(0.0, 0.0, 0.0);
+	backgroundTarget.end();
+
+	/*
     if (hmd->HmdCaps & ovrHmdCap_ExtendDesktop) {
         windowSize = hmd->Resolution;
         printf("hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
@@ -261,12 +331,23 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	render_settings.width = renderTargetSize.w;
 	render_settings.height = renderTargetSize.h;
     
-    renderTarget.allocate(render_settings);
-    backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
+    glGenFramebuffers(1, &frameBuffer);
+ 
+    glGenTextures(1, &texture);
+ 
+    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, renderTargetSize.w, renderTargetSize.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, texture, 0);
+ 
+    glGenRenderbuffers(1, &renderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, renderBuffer);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, renderTargetSize.w, renderTargetSize.h);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, renderBuffer);
+    //renderTarget.allocate(render_settings);
 
-//	backgroundTarget.begin();
-//    ofClear(0.0, 0.0, 0.0);
-//	backgroundTarget.end();
 
 	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
 	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
@@ -300,8 +381,10 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     EyeTexture[1].Header.RenderViewport = eyeRenderViewport[1];
     
     // set the tex IDs from the ofFbo
-    ((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
-    ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
+    //((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
+    //((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
+	((ovrGLTexture &)EyeTexture[0]).OGL.TexId = texture;
+    ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = texture;
 
     cout << "renderTargetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
     cout << "eye tex 0  viewpos: " << EyeTexture[0].Header.RenderViewport.Pos.x << " " << EyeTexture[0].Header.RenderViewport.Pos.y << endl;
@@ -373,7 +456,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     reloadShader();
     
 #endif
-
+	*/
     bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
 	bSetup = true;
@@ -555,9 +638,12 @@ void ofxOculusDK2::beginLeftEye(){
     
 	insideFrame = true;
 
-	renderTarget.begin();
-	ofClear(0,0,0);
-	
+	//renderTarget.begin();
+	//ofClear(0,0,0);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+ 	
 	ofPushView();
 	ofPushMatrix();
     
@@ -594,7 +680,7 @@ void ofxOculusDK2::endRightEye(){
 
 	ofPopMatrix();
 	ofPopView();
-	renderTarget.end();	
+	//renderTarget.end();	
 }
 
 void ofxOculusDK2::renderOverlay(){
@@ -749,12 +835,15 @@ void ofxOculusDK2::draw(){
 	
 	if(!insideFrame) return;
 
+	glBindVertexArray(0);
+ 
 //    ofPixels dp;
 //    renderTarget.readToPixels(dp);
 //    debugImage.setFromPixels(dp);
 //    debugImage.saveImage("debug.png");
-    GLint err = glGetError();
-    ovrHmd_EndFrame(hmd, headPose, EyeTexture);
+//    GLint err = glGetError();
+
+    ovrHmd_EndFrame(hmd, headPose, &eyeTexture[0].Texture);
     
     bUseOverlay = false;
 	bUseBackground = false;
