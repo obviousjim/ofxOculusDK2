@@ -176,13 +176,13 @@ void ofxOculusDK2::initialize(){
 	bInitialized = true;
 
 	ovr_Initialize();
- 
-	hmd = ovrHmd_Create(0);
+ 	hmd = ovrHmd_Create(0);
 	if (hmd == NULL)
 	{
 		hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
-		debug = true;
+		//bUsingDebugHmd = true;
 	}
+
 }
 
 bool ofxOculusDK2::setup(){
@@ -230,6 +230,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
         }
 	}
     */
+
+
 
     if (hmd->HmdCaps & ovrHmdCap_ExtendDesktop) {
         windowSize = hmd->Resolution;
@@ -751,7 +753,7 @@ void ofxOculusDK2::draw(){
 //    renderTarget.readToPixels(dp);
 //    debugImage.setFromPixels(dp);
 //    debugImage.saveImage("debug.png");
-    
+    GLint err = glGetError();
     ovrHmd_EndFrame(hmd, headPose, EyeTexture);
     
     bUseOverlay = false;
