@@ -188,14 +188,14 @@ void ofxOculusDK2::initialize(){
 bool ofxOculusDK2::setup(){
 	ofFbo::Settings settings;
 	//settings.numSamples = 4;
-    settings.numSamples = 0;
+	settings.numSamples = 1;
 	settings.internalformat = GL_RGBA;
-    settings.useDepth = true;
-    settings.textureTarget = GL_TEXTURE_2D;
-    settings.minFilter = GL_LINEAR;
-    settings.maxFilter = GL_LINEAR;
-    settings.wrapModeHorizontal = GL_CLAMP_TO_EDGE;
-    settings.wrapModeVertical = GL_CLAMP_TO_EDGE;
+	settings.useDepth = true;
+	settings.textureTarget = GL_TEXTURE_2D;
+	settings.minFilter = GL_LINEAR;
+	settings.maxFilter = GL_LINEAR;
+	settings.wrapModeHorizontal = GL_CLAMP_TO_EDGE;
+	settings.wrapModeVertical = GL_CLAMP_TO_EDGE;
 	return setup(settings);
 }
 
@@ -207,7 +207,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	}
 
 	if(!bInitialized){
-		//initialize();
+		initialize();
 	}
 
 	/*
@@ -236,10 +236,14 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	Sizei recommendedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], 1.0f);
     Sizei recommendedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], 1.0f);
     
-
     renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
     renderTargetSize.h = max(recommendedTex0Size.h, recommendedTex1Size.h);
  
+	render_settings.width = renderTargetSize.w;
+	render_settings.height = renderTargetSize.h;
+	renderTarget.allocate(render_settings);
+
+	/*
     glGenFramebuffers(1, &frameBuffer);
  
     glGenTextures(1, &texture);
@@ -265,7 +269,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		ofLogError("Framebuffer failed!");
 		ofExit(0);
     }
- 
+	*/
+
     ovrFovPort eyeFov[2] = { hmd->DefaultEyeFov[0], hmd->DefaultEyeFov[1] };
  
     eyeRenderViewport[0].Pos = Vector2i(0, 0);
@@ -276,7 +281,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     eyeTexture[0].OGL.Header.API = ovrRenderAPI_OpenGL;
     eyeTexture[0].OGL.Header.TextureSize = renderTargetSize;
     eyeTexture[0].OGL.Header.RenderViewport = eyeRenderViewport[0];
-    eyeTexture[0].OGL.TexId = texture;
+//    eyeTexture[0].OGL.TexId = texture;
+	eyeTexture[0].OGL.TexId = renderTarget.getTextureReference().getTextureData().textureID;
  
     eyeTexture[1] = eyeTexture[0];
     eyeTexture[1].OGL.Header.RenderViewport = eyeRenderViewport[1];
@@ -638,13 +644,16 @@ void ofxOculusDK2::beginLeftEye(){
     
 	insideFrame = true;
 
-	//renderTarget.begin();
-	//ofClear(0,0,0);
+	renderTarget.begin();
 
-	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
  	
 	ofPushView();
+//	ofViewport(0,0,renderTargetSize.w, renderTargetSize.h);
+//	ofSetupScreenPerspective(renderTargetSize.w, renderTargetSize.h, baseCamera->getFov(), baseCamera->getNearClip(), baseCamera->getFarClip());
+//	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	ofClear(255,0,0);
+
 	ofPushMatrix();
     
 	setupEyeParams(ovrEye_Left);
@@ -680,7 +689,9 @@ void ofxOculusDK2::endRightEye(){
 
 	ofPopMatrix();
 	ofPopView();
-	//renderTarget.end();	
+	//glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	renderTarget.end();	
 }
 
 void ofxOculusDK2::renderOverlay(){
@@ -835,7 +846,7 @@ void ofxOculusDK2::draw(){
 	
 	if(!insideFrame) return;
 
-	glBindVertexArray(0);
+//	glBindVertexArray(0);
  
 //    ofPixels dp;
 //    renderTarget.readToPixels(dp);
