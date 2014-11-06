@@ -15,6 +15,8 @@ GLuint vertexArray;
 ovrGLTexture eyeTexture[2];
 GLuint positionBuffer;
 
+ofFbo fbo;
+
 //--------------------------------------------------------------
 void testApp::setup()
 {
@@ -25,6 +27,18 @@ void testApp::setup()
     Sizei renderTargetSize;
     renderTargetSize.w = recommendedTex0Size.w + recommendedTex1Size.w;
     renderTargetSize.h = max(recommendedTex0Size.h, recommendedTex1Size.h);
+
+	/*ofFbo::Settings fboSettings;
+	fboSettings.width = renderTargetSize.w;
+	fboSettings.height = renderTargetSize.h;
+	fboSettings.textureTarget = GL_TEXTURE_2D;
+	fboSettings.internalformat = GL_RGBA;
+	fboSettings.minFilter = GL_LINEAR;
+	fboSettings.maxFilter = GL_LINEAR;
+	fboSettings.useDepth = true;
+	fboSettings.depthStencilInternalFormat = GL_DEPTH_COMPONENT24;
+
+	fbo.allocate(fboSettings);*/
  
     glGenFramebuffers(1, &frameBuffer);
  
@@ -172,10 +186,14 @@ void testApp::draw()
 
 	
 	ovrFrameTiming frameTiming = ovrHmd_BeginFrame(hmd, 0);
- 
+
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
+	//fbo.begin();
  
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	ofBackground(ofGetFrameNum() % 255, 128, 128);
+
+	//glBindVertexArray(vertexArray);
  
 	ovrPosef eyeRenderPose[2];
  
@@ -186,19 +204,33 @@ void testApp::draw()
  
 			Matrix4f MVPMatrix = Matrix4f(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true)) * Matrix4f::Translation(eyeRenderDesc[eye].HmdToEyeViewOffset) * Matrix4f(Quatf(eyeRenderPose[eye].Orientation).Inverted());
  
-			glUniformMatrix4fv(MVPMatrixLocation, 1, GL_FALSE, &MVPMatrix.Transposed().M[0][0]);
+//			glUniformMatrix4fv(MVPMatrixLocation, 1, GL_FALSE, &MVPMatrix.Transposed().M[0][0]);
  
 			glViewport(eyeRenderViewport[eye].Pos.x, eyeRenderViewport[eye].Pos.y, eyeRenderViewport[eye].Size.w, eyeRenderViewport[eye].Size.h);
  
-			glDrawArrays(GL_TRIANGLES, 0, 3);
-			//drawScene();
+			//ofPushMatrix();
+			ofMatrix4x4 ofMVPMatrix(MVPMatrix.M[0][0], MVPMatrix.M[0][1], MVPMatrix.M[0][2], MVPMatrix.M[0][3],
+									MVPMatrix.M[1][0], MVPMatrix.M[1][1], MVPMatrix.M[1][2], MVPMatrix.M[1][3],
+									MVPMatrix.M[2][0], MVPMatrix.M[2][1], MVPMatrix.M[2][2], MVPMatrix.M[2][3],
+									MVPMatrix.M[3][0], MVPMatrix.M[3][1], MVPMatrix.M[3][2], MVPMatrix.M[3][3]);
+			//ofMultMatrix(ofMVPMatrix);
+
+			ofVec4f pos;
+			pos = ofMVPMatrix * pos;
+
+			ofDrawSphere(pos, 2);
+
+			//ofPopMatrix();
+
+			//glDrawArrays(GL_TRIANGLES, 0, 3);
 	}
  
-	glBindVertexArray(0);
+	//glBindVertexArray(0);
  
 	ovrHmd_EndFrame(hmd, eyeRenderPose, &eyeTexture[0].Texture);
  
-	glBindVertexArray(vertexArray);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//fbo.end();
  
 }
 
