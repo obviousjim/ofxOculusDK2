@@ -253,7 +253,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 
     unsigned int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive; // | ovrDistortionCap_SRGB;
     
-#ifdef SDK_RENDER
+#if SDK_RENDER
     // END mattebb SDK rendering test
     ovrRenderAPIConfig config = ovrRenderAPIConfig();
     config.Header.API = ovrRenderAPI_OpenGL;
@@ -519,7 +519,7 @@ void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
 	
-#ifdef SDK_RENDER
+#if SDK_RENDER
     frameTiming = ovrHmd_BeginFrame(hmd, 0);
 #else
     frameTiming = ovrHmd_BeginFrameTiming(hmd, ++frameIndex);
@@ -714,7 +714,7 @@ ofVec2f ofxOculusDK2::gazePosition2D(){
                    ofMap(angles.z, 90, -90, 0, ofGetHeight()));
 }
 
-#ifdef SDK_RENDER
+#if SDK_RENDER
 void ofxOculusDK2::draw(){
 	
 	if(!bSetup) return;
