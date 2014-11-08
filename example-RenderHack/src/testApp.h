@@ -2,7 +2,12 @@
 
 #include "ofMain.h"
 
-#define OVR_OS_WIN32
+#if defined(TARGET_OSX)
+    #define OVR_OS_MAC
+#elif defined(TARGET_WIN32)
+    #define OVR_OS_WIN32
+#endif
+
 #include "OVR_CAPI_GL.h"
 #include "Kernel/OVR_Math.h"
 using namespace OVR;
