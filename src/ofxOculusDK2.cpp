@@ -176,6 +176,7 @@ bool ofxOculusDK2::setup(){
     settings.maxFilter = GL_LINEAR;
     settings.wrapModeHorizontal = GL_CLAMP_TO_EDGE;
     settings.wrapModeVertical = GL_CLAMP_TO_EDGE;
+    settings.depthStencilInternalFormat = GL_DEPTH_COMPONENT24;
 	return setup(settings);
 }
 
@@ -379,17 +380,12 @@ ofMatrix4x4 ofxOculusDK2::getProjectionMatrix(ovrEyeType eye) {
 ofMatrix4x4 ofxOculusDK2::getViewMatrix(ovrEyeType eye) {
 
     ofMatrix4x4 baseCameraMatrix = baseCamera->getModelViewMatrix();
-    //ofMatrix4x4 viewAdjust;
-    
-    // pre-transform offset for IPD
-    //viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].HmdToEyeViewOffset) );
-    
+
     // head orientation and position
     ofMatrix4x4 hmdView =   ofMatrix4x4::newRotationMatrix( toOf(headPose[eye].Orientation)) * \
     ofMatrix4x4::newTranslationMatrix( toOf(headPose[eye].Position));
     
     // final multiplication of everything
-    //return viewAdjust * hmdView.getInverse() * baseCameraMatrix;
     return baseCameraMatrix * hmdView.getInverse();
 }
 
@@ -404,9 +400,9 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	}
     
     // xxx mattebb
-    frameIndex=0;
     ovrHmd_GetEyePoses(hmd, frameIndex, hmdToEyeViewOffsets, headPose, NULL);
 
+    //cout << "viewport" << toOf(eyeRenderViewport[eye]) << endl;
 	ofViewport(toOf(eyeRenderViewport[eye]));
 
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
@@ -520,7 +516,7 @@ void ofxOculusDK2::beginLeftEye(){
 	if(!bSetup) return;
 	
 #if SDK_RENDER
-    frameTiming = ovrHmd_BeginFrame(hmd, 0);
+    frameTiming = ovrHmd_BeginFrame(hmd, ++frameIndex);
 #else
     frameTiming = ovrHmd_BeginFrameTiming(hmd, ++frameIndex);
 #endif
@@ -528,7 +524,7 @@ void ofxOculusDK2::beginLeftEye(){
 	insideFrame = true;
 
 	renderTarget.begin();
-	ofClear(0,0,0);
+	ofClear(0,0,255);
 	
 	ofPushView();
 	ofPushMatrix();
@@ -716,17 +712,24 @@ ofVec2f ofxOculusDK2::gazePosition2D(){
 
 #if SDK_RENDER
 void ofxOculusDK2::draw(){
-	
+	static int done_debug=-1;
+    
 	if(!bSetup) return;
 	
 	if(!insideFrame) return;
 
-//    ofPixels dp;
-//    renderTarget.readToPixels(dp);
-//    debugImage.setFromPixels(dp);
-//    debugImage.saveImage("debug.png");
+    if (done_debug==0) {
+        ofPixels dp;
+        renderTarget.readToPixels(dp);
+        debugImage.setFromPixels(dp);
+        debugImage.saveImage("debug.png");
+        done_debug=1;
+    }
     
     ovrHmd_EndFrame(hmd, headPose, EyeTexture);
+
+    if (!ofIsGLProgrammableRenderer())
+        glUseProgram(0);
     
     bUseOverlay = false;
 	bUseBackground = false;
