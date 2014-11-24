@@ -252,12 +252,13 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     eyeRenderViewport[1].Pos  = Vector2i((renderTargetSize.w + 1) / 2, 0);
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
-    unsigned int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive; // | ovrDistortionCap_SRGB;
+    unsigned int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive | ovrDistortionCap_SRGB;
     
 #if SDK_RENDER
     // END mattebb SDK rendering test
     ovrRenderAPIConfig config = ovrRenderAPIConfig();
     config.Header.API = ovrRenderAPI_OpenGL;
+    cout << "resolution " << hmd->Resolution.w << " -- " << hmd->Resolution.h << endl;
     config.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
     config.Header.Multisample = 0; // configurable ?
     
@@ -421,14 +422,6 @@ ofRectangle ofxOculusDK2::getOculusViewport(){
 }
 
 void ofxOculusDK2::reloadShader(){
-    // XXX mattebb
-    /*
-     if(ofFile("Shaders_GL3/debug.vert").exists() && ofFile("Shaders_GL3/debug.frag").exists()){
-		cout << "** debug SHADERS loading from file" << endl;
-		debugShader.load("Shaders_GL3/debug");
-	}
-     */
-    
     
 	//this allows you to hack on the shader if you'd like
     if (ofIsGLProgrammableRenderer()) {
@@ -743,42 +736,6 @@ void ofxOculusDK2::draw(){
 	if(!insideFrame) return;
 
 	ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
-
-//    ofPixels dp;
-//    renderTarget.readToPixels(dp);
-//    debugImage.setFromPixels(dp);
-//    debugImage.saveImage("debug.png");
-
-
-    /*
-    ofDisableDepthTest();
-    ofEnableAlphaBlending();
-	debugShader.begin();
-    debugShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
-    debugShader.setUniform2f("TextureScale",
-                  renderTarget.getTextureReference().getWidth(),
-                  renderTarget.getTextureReference().getHeight());
-    
-    debugMesh.clear();
-    float width = renderTargetSize.w;
-    float height = renderTargetSize.h;
-	//ofRectangle debugrect = ofRectangle(-width/2, -height/2,width,height);
-    ofRectangle debugrect = ofRectangle(100,100, width/2,height/2);
-	debugMesh.addVertex( ofVec3f(debugrect.getMinX(), debugrect.getMinY(), 100) );
-	debugMesh.addVertex( ofVec3f(debugrect.getMaxX(), debugrect.getMinY(), 100) );
-	debugMesh.addVertex( ofVec3f(debugrect.getMinX(), debugrect.getMaxY(), 100) );
-	debugMesh.addVertex( ofVec3f(debugrect.getMaxX(), debugrect.getMaxY(), 100) );
-    
-	debugMesh.addTexCoord( ofVec2f(0, height ) );
-	debugMesh.addTexCoord( ofVec2f(width, height) );
-	debugMesh.addTexCoord( ofVec2f(0, 0) );
-	debugMesh.addTexCoord( ofVec2f(width, 0) );
-	
-	debugMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
-    debugMesh.draw();
-    
-    debugShader.end();
-    */
    
 	///JG START HERE 
 	// Prepare for distortion rendering. 
@@ -816,6 +773,10 @@ void ofxOculusDK2::draw(){
 	insideFrame = false;
 }
 #endif
+
+void ofxOculusDK2::dismissSafetyWarning(void) {
+    ovrHmd_DismissHSWDisplay(hmd);
+}
 
 void ofxOculusDK2::setUsePredictedOrientation(bool usePredicted){
 	bUsePredictedOrientation = usePredicted;

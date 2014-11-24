@@ -9,8 +9,8 @@ void testApp::setup()
 	ofSetVerticalSync( true );
     ofEnableDepthTest();
    
-    //    ofSetWindowPosition(1920, 0);
-    //    ofToggleFullscreen();
+    ofSetWindowPosition(1920, 0);
+    ofToggleFullscreen();
 	showOverlay = false;
 	predictive = true;
 	
@@ -92,8 +92,7 @@ void testApp::setupSpheres() {
 void testApp::draw()
 {
 	if(oculusRift.isSetup()){
-/*
-		if(0 && showOverlay){
+		if(showOverlay){
 			
 			oculusRift.beginOverlay(-230, 320,240);
 			ofRectangle overlayRect = oculusRift.getOverlayRectangle();
@@ -116,14 +115,9 @@ void testApp::draw()
 			ofPopStyle();
 			oculusRift.endOverlay();
 		}
- */
 
         cam.begin();
         cam.end();
-        
-        ofSetColor(255);
-		glEnable(GL_DEPTH_TEST);
-
 
 		oculusRift.beginLeftEye();
 		drawScene();
@@ -134,10 +128,7 @@ void testApp::draw()
 		oculusRift.endRightEye();
 		
         oculusRift.draw();
-		
-		glDisable(GL_DEPTH_TEST);
-        
-        //cam.end();
+		        //cam.end();
     }
 	else{
 		cam.begin();
@@ -213,6 +204,9 @@ void testApp::drawScene()
 //--------------------------------------------------------------
 void testApp::keyPressed(int key)
 {
+    // dismiss safety warning on any key
+    oculusRift.dismissSafetyWarning();
+    
 	if( key == 'f' )
 	{
 		//gotta toggle full screen for it to be right

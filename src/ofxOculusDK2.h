@@ -68,6 +68,8 @@ class ofxOculusDK2
     void setUsePredictedOrientation(bool usePredicted);
 	bool getUsePredictiveOrientation();
 	
+    void dismissSafetyWarning();
+
 	void reloadShader();
 
 	ofQuaternion getOrientationQuat();
@@ -111,7 +113,7 @@ class ofxOculusDK2
 	ofFbo& getRenderTarget(){
         return renderTarget;
     }
-
+    
 	ofRectangle getOculusViewport();
 	bool isHD();
 	//allows you to disable moving the camera based on inner ocular distance
