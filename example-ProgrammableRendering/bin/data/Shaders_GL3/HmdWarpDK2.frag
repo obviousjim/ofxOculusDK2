@@ -1,6 +1,6 @@
 #version 150
 
-uniform sampler2DRect Texture;
+uniform sampler2D Texture;
 uniform vec2 TextureScale;
     
 in vec4 oColor;
@@ -15,9 +15,9 @@ void main()
    // fragColor.r = oColor.r * texture(Texture, oTexCoord0 * TextureScale, 0.0).r;
    // fragColor.g = oColor.g * texture(Texture, oTexCoord1 * TextureScale, 0.0).g;
    // fragColor.b = oColor.b * texture(Texture, oTexCoord2 * TextureScale, 0.0).b;
-   fragColor.r = oColor.r * texture(Texture, oTexCoord0 * TextureScale).r;
-   fragColor.g = oColor.g * texture(Texture, oTexCoord1 * TextureScale).g;
-   fragColor.b = oColor.b * texture(Texture, oTexCoord2 * TextureScale).b;
+   fragColor.r = oColor.r * texture(Texture, oTexCoord0).r;
+   fragColor.g = oColor.g * texture(Texture, oTexCoord1).g;
+   fragColor.b = oColor.b * texture(Texture, oTexCoord2).b;
 
    fragColor.r += 0.1;
 
