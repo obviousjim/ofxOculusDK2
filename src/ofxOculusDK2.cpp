@@ -473,7 +473,7 @@ void ofxOculusDK2::beginOverlay(float overlayZ, float width, float height){
 	bUseOverlay = true;
 	overlayZDistance = overlayZ;
 	
-	if(overlayTarget.getWidth() != width || overlayTarget.getHeight() != height){
+	if((int)overlayTarget.getWidth() != (int)width || (int)overlayTarget.getHeight() != (int)height){
 		overlayTarget.allocate(width, height, GL_RGBA, 4);
 	}
 	
