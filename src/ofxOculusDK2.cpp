@@ -283,7 +283,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     cout << "eye tex 1 pos: " << EyeTexture[1].Header.RenderViewport.Pos.x << " " << EyeTexture[1].Header.RenderViewport.Pos.y << endl;
     cout << "eye tex 1 size: " << EyeTexture[1].Header.RenderViewport.Size.w << " " << EyeTexture[1].Header.RenderViewport.Size.h << endl;
     
-    int hmdCaps;
+    int hmdCaps=0;
     hmdCaps |= ovrHmdCap_DynamicPrediction;
     hmdCaps |= ovrHmdCap_LowPersistence;
     
