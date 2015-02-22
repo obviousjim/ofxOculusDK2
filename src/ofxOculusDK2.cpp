@@ -340,7 +340,8 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
 	ofLoadIdentityMatrix();
 	
-	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, true) );
+	//ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, .01f, 10000.0f, true) );
+	ofMatrix4x4 projectionMatrix = toOf(ovrMatrix4f_Projection(eyeRenderDesc[eye].Fov, baseCamera->getNearClip(), baseCamera->getFarClip(), true) );
 	ofLoadMatrix( projectionMatrix );
 	
 	//what to do about this 
@@ -487,7 +488,7 @@ void ofxOculusDK2::beginLeftEye(){
 	insideFrame = true;
 
 	renderTarget.begin();
-	//ofClear(0,0,0);
+	ofClear(0,0,0);
 	
 	ofPushView();
 	ofPushMatrix();
@@ -678,7 +679,9 @@ void ofxOculusDK2::draw(){
 
 	///JG START HERE 
 	// Prepare for distortion rendering. 
+	GLboolean depthOn = glIsEnabled(GL_DEPTH_TEST);
 	ofDisableDepthTest();
+	
     ofEnableAlphaBlending();
 	distortionShader.begin();
 	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
@@ -704,8 +707,9 @@ void ofxOculusDK2::draw(){
 	/////////////////////
 	ovrHmd_EndFrameTiming(hmd);
     
-
-	ofEnableDepthTest();
+	if(depthOn){
+		ofEnableDepthTest();
+	}
 
 	bUseOverlay = false;
 	bUseBackground = false;
