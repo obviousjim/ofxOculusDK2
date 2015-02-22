@@ -8,7 +8,6 @@
 //  Adapted to DK2 by James George and Elie Zananiri August 2014
 
 #include "ofxOculusDK2.h"
-//#include "OVR_CAPI_GL.h"
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -73,7 +72,7 @@ static const char* OculusWarpVert = GLSL(120,
 static const char* OculusWarpFrag = GLSL(120,
 	uniform sampler2DRect Texture;
 	uniform vec2 TextureScale;
-
+	uniform float fade;
 	varying vec4 oColor;
 	varying vec2 oTexCoord0;
 	varying vec2 oTexCoord1;
@@ -84,7 +83,7 @@ static const char* OculusWarpFrag = GLSL(120,
 	  gl_FragColor.r = oColor.r * texture2DRect(Texture, oTexCoord0 * TextureScale).r;
 	  gl_FragColor.g = oColor.g * texture2DRect(Texture, oTexCoord1 * TextureScale).g;
 	  gl_FragColor.b = oColor.b * texture2DRect(Texture, oTexCoord2 * TextureScale).b;
-	  gl_FragColor.a = 1.0;
+	  gl_FragColor.a = fade;
 	}
 );
 
@@ -143,6 +142,7 @@ ofxOculusDK2::ofxOculusDK2(){
 	bUseBackground = false;
 	overlayZDistance = -200;
 	oculusScreenSpaceScale = 2;
+	applyTranslation = true;
 }
 
 ofxOculusDK2::~ofxOculusDK2(){
@@ -298,7 +298,6 @@ void ofxOculusDK2::reset(){
 	}
 }
 
-
 ofQuaternion ofxOculusDK2::getOrientationQuat(){
 //	return toOf(pFusionResult->GetPredictedOrientation());
 
@@ -371,10 +370,11 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
 //		ofLoadMatrix( headRotation );
 	}
 	
-	ofMatrix4x4 viewAdjust;
-	viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
-	ofMultMatrix(viewAdjust);
-	
+	if(applyTranslation){
+		ofMatrix4x4 viewAdjust;
+		viewAdjust.makeTranslationMatrix( toOf(eyeRenderDesc[eye].ViewAdjust) );
+		ofMultMatrix(viewAdjust);
+	}
 
 	/*
 	ofViewport(toOf(eyeRenderViewport[eye]));
@@ -431,7 +431,6 @@ void ofxOculusDK2::reloadShader(){
 
 void ofxOculusDK2::beginBackground(){
 	bUseBackground = true;
-	insideFrame = true;
     backgroundTarget.begin();
     ofClear(0.0, 0.0, 0.0);
     ofPushView();
@@ -449,7 +448,7 @@ void ofxOculusDK2::beginOverlay(float overlayZ, float width, float height){
 	bUseOverlay = true;
 	overlayZDistance = overlayZ;
 	
-	if(overlayTarget.getWidth() != width || overlayTarget.getHeight() != height){
+	if((int)overlayTarget.getWidth() != (int)width || (int)overlayTarget.getHeight() != (int)height){
 		overlayTarget.allocate(width, height, GL_RGBA, 4);
 	}
 	
@@ -484,7 +483,15 @@ void ofxOculusDK2::beginLeftEye(){
 	
 	if(!bSetup) return;
 	
+	if(insideFrame){
+		//insideFrame = false;
+		ovr_WaitTillTime(frameTiming.TimewarpPointSeconds);
+		ovrHmd_EndFrameTiming(hmd);		
+		//return;
+	}
+
 	frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
+
 	insideFrame = true;
 
 	renderTarget.begin();
@@ -498,7 +505,8 @@ void ofxOculusDK2::beginLeftEye(){
 
 void ofxOculusDK2::endLeftEye(){
 	if(!bSetup) return;
-	
+
+
 	if(bUseOverlay){
 		renderOverlay();
 	}
@@ -510,6 +518,7 @@ void ofxOculusDK2::endLeftEye(){
 void ofxOculusDK2::beginRightEye(){
 	if(!bSetup) return;
 	
+
 	ofPushView();
 	ofPushMatrix();
 	
@@ -518,6 +527,7 @@ void ofxOculusDK2::beginRightEye(){
 
 void ofxOculusDK2::endRightEye(){
 	if(!bSetup) return;
+
 
 	if(bUseOverlay){
 		renderOverlay();
@@ -684,6 +694,7 @@ void ofxOculusDK2::draw(){
 	
     ofEnableAlphaBlending();
 	distortionShader.begin();
+	distortionShader.setUniform1f("fade", ofGetStyle().color.a / 255.);
 	distortionShader.setUniformTexture("Texture", renderTarget.getTextureReference(), 1);
 	distortionShader.setUniform2f("TextureScale", 
 		renderTarget.getTextureReference().getWidth(), 

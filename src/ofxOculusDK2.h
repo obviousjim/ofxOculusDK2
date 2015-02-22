@@ -17,13 +17,6 @@ using namespace OVR;
 
 #include "OVR_CAPI.h"
 
-//#include "../CommonSrc/Platform/Platform_Default.h"
-//#include "../CommonSrc/Render/Render_Device.h"
-//#include "../CommonSrc/Render/Render_XmlSceneLoader.h"
-//#include "../CommonSrc/Platform/Gamepad.h"
-//#include "../CommonSrc/Util/OptionMenu.h"
-//#include "../CommonSrc/Util/RenderProfiler.h"
-
 #include "Util/Util_Render_Stereo.h"
 using namespace OVR::Util::Render;
 
@@ -78,7 +71,6 @@ class ofxOculusDK2
 	ofQuaternion getOrientationQuat();
 	ofMatrix4x4 getOrientationMat();
 	
-
 	//default 1 has more constrained mouse movement,
 	//while turning it up increases the reach of the mouse
 	float oculusScreenSpaceScale;
@@ -119,7 +111,8 @@ class ofxOculusDK2
 
 	ofRectangle getOculusViewport();
 	bool isHD();
-
+	//allows you to disable moving the camera based on inner ocular distance
+	bool applyTranslation;
 
   private:
 	bool bSetup;
@@ -150,7 +143,6 @@ class ofxOculusDK2
 
     Sizei               windowSize;
     
-
 	OVR::Util::Render::StereoConfig stereo;
 	float renderScale;
 	ofMesh overlayMesh;

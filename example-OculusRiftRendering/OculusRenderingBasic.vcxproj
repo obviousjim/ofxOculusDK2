@@ -19,7 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{7FD42DF7-442E-479A-BA76-D0022F99702A}</ProjectGuid>
+    <ProjectGuid>{1CF204FD-987D-4DAD-8E32-75A0683696C3}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>audioOutputExample</RootNamespace>
   </PropertyGroup>
