@@ -616,7 +616,7 @@ ofVec3f ofxOculusDK2::screenToWorld(ofVec3f screenPt, bool considerHeadOrientati
 	}
     
     ofVec3f oculus2DPt = screenToOculus2D(screenPt, considerHeadOrientation);
-    ofRectangle viewport = getOculusViewport();
+    ofRectangle viewport = getOculusViewport();getOculusViewport();
     return baseCamera->screenToWorld(oculus2DPt, viewport);
 }
 
@@ -666,17 +666,21 @@ void ofxOculusDK2::multBillboardMatrix(ofVec3f objectPosition, ofVec3f updirecti
 	ofNode n;
 	n.setPosition( objectPosition );
 	n.lookAt(baseCamera->getPosition(), updirection);
-	ofVec3f axis; float angle;
-	n.getOrientationQuat().getRotate(angle, axis);
+	//ofVec3f axis; float angle;
+	//n.getOrientationQuat().getRotate(angle, axis);
 	// Translate the object to its position.
+	/*
 	ofTranslate( objectPosition );
 	// Perform the rotation.
 	ofRotate(angle, axis.x, axis.y, axis.z);
+	*/
+	ofMultMatrix(n.getGlobalTransformMatrix());
 }
 ofVec2f ofxOculusDK2::gazePosition2D(){
     ofVec3f angles = getOrientationQuat().getEuler();
-	return ofVec2f(ofMap(angles.y, 90, -90, 0, ofGetWidth()),
-                   ofMap(angles.z, 90, -90, 0, ofGetHeight()));
+//	cout << "viewport " << ofVec2f(getOculusViewport().width, getOculusViewport().height) << endl;
+	return ofVec2f(ofMap(angles.y, 90, -90, 0, getOculusViewport().height),
+				   ofMap(angles.z, 90, -90, 0, getOculusViewport().width));
 }
 
 void ofxOculusDK2::draw(){
