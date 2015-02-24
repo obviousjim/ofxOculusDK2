@@ -449,7 +449,7 @@ void ofxOculusDK2::beginOverlay(float overlayZ, float width, float height){
 	overlayZDistance = overlayZ;
 	
 	if((int)overlayTarget.getWidth() != (int)width || (int)overlayTarget.getHeight() != (int)height){
-		overlayTarget.allocate(width, height, GL_RGBA, 4);
+		overlayTarget.allocate(width, height, GL_RGBA);
 	}
 	
 	overlayMesh.clear();
@@ -627,8 +627,8 @@ ofVec3f ofxOculusDK2::screenToOculus2D(ofVec3f screenPt, bool considerHeadOrient
 //  viewport.x -= viewport.width  / 2;
 //	viewport.y -= viewport.height / 2;
 	viewport.scaleFromCenter(oculusScreenSpaceScale);
-    return ofVec3f(ofMap(screenPt.x, 0, ofGetWidth(),  viewport.getMinX(), viewport.getMaxX()),
-                   ofMap(screenPt.y, 0, ofGetHeight(), viewport.getMinY(), viewport.getMaxY()),
+	return ofVec3f(ofMap(screenPt.x, 0, windowSize.w,  viewport.getMinX(), viewport.getMaxX()),
+				   ofMap(screenPt.y, 0, windowSize.h, viewport.getMinY(), viewport.getMaxY()),
                    screenPt.z);    
 }
 
@@ -678,9 +678,8 @@ void ofxOculusDK2::multBillboardMatrix(ofVec3f objectPosition, ofVec3f updirecti
 }
 ofVec2f ofxOculusDK2::gazePosition2D(){
     ofVec3f angles = getOrientationQuat().getEuler();
-//	cout << "viewport " << ofVec2f(getOculusViewport().width, getOculusViewport().height) << endl;
-	return ofVec2f(ofMap(angles.y, 90, -90, 0, getOculusViewport().height),
-				   ofMap(angles.z, 90, -90, 0, getOculusViewport().width));
+	return ofVec2f(ofMap(angles.y, 90, -90, 0, windowSize.w),
+				   ofMap(angles.z, 90, -90, 0, windowSize.h));
 }
 
 void ofxOculusDK2::draw(){
