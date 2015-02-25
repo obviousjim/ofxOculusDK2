@@ -227,6 +227,9 @@ void testApp::keyPressed(int key)
 	if(key == 'r'){
 		oculusRift.reset();
 	}
+    if(key == 'c'){
+        oculusRift.recenterPose();
+    }
     if(key == 'z'){
 		setupSpheres();
 	}

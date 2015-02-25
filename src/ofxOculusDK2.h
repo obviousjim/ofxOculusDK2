@@ -69,6 +69,7 @@ class ofxOculusDK2
 	bool getUsePredictiveOrientation();
 	
     void dismissSafetyWarning();
+    void recenterPose();
 
 	void reloadShader();
 

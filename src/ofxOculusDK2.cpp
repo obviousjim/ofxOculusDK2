@@ -786,6 +786,10 @@ void ofxOculusDK2::dismissSafetyWarning(void) {
     ovrHmd_DismissHSWDisplay(hmd);
 }
 
+void ofxOculusDK2::recenterPose(void) {
+    ovrHmd_RecenterPose(hmd);
+}
+
 void ofxOculusDK2::setUsePredictedOrientation(bool usePredicted){
 	bUsePredictedOrientation = usePredicted;
 }
