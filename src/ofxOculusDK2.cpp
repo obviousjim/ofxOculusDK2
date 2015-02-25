@@ -12,7 +12,7 @@
 
 #include <stdio.h>  // XXX mattebb for testing, printf
 
-#define SDK_RENDER 1
+//#define SDK_RENDER 1
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -600,23 +600,20 @@ ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrie
 
     ofRectangle viewport = getOculusViewport();
     
-    ofMatrix4x4 projectedLeft = getViewMatrix(ovrEye_Left) * getProjectionMatrix(ovrEye_Right);
+    //ofMatrix4x4 projectedLeft = getViewMatrix(ovrEye_Left) * getProjectionMatrix(ovrEye_Right);
     
-/*
+
     if (considerHeadOrientation) {
         // We'll combine both left and right eye projections to get a midpoint.
-//        OVR::Util::Render::StereoEyeParams eyeRenderParams = stereo.GetEyeRenderParams(OVR::Util::Render::StereoEye_Left);
-//        ofMatrix4x4 projectionMatrixLeft = toOf(eyeRenderParams.Projection);
-//        eyeRenderParams = stereo.GetEyeRenderParams(OVR::Util::Render::StereoEye_Right);
-//        ofMatrix4x4 projectionMatrixRight = toOf(eyeRenderParams.Projection);
+
 
         ofMatrix4x4 projectionMatrixLeft = toOf(ovrMatrix4f_Projection(eyeRenderDesc[ovrEye_Left].Fov, 0.01f, 10000.0f, true));
         ofMatrix4x4 projectionMatrixRight = toOf(ovrMatrix4f_Projection(eyeRenderDesc[ovrEye_Right].Fov, 0.01f, 10000.0f, true));
         
-        ofMatrix4x4 modelViewMatrix = orientationMatrix;
+        ofMatrix4x4 modelViewMatrix = getOrientationMat();
         modelViewMatrix = modelViewMatrix * baseCamera->getGlobalTransformMatrix();
-//        baseCamera->begin();
-//        baseCamera->end();
+        baseCamera->begin();
+        baseCamera->end();
         modelViewMatrix = modelViewMatrix.getInverse();
     
         ofVec3f cameraXYZ = worldPosition * (modelViewMatrix * projectionMatrixLeft);
@@ -624,12 +621,23 @@ ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrie
 
         ofVec3f screenXYZ((cameraXYZ.x + 1.0f) / 2.0f * viewport.width + viewport.x,
                           (1.0f - cameraXYZ.y) / 2.0f * viewport.height + viewport.y,
-                          cameraXYZ.z);        
+                          cameraXYZ.z);
         return screenXYZ;
 
     }
-     */
+    
 	return baseCamera->worldToScreen(worldPosition, viewport);
+}
+
+ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
+	
+	//return toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
+	
+	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
+	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
+		return toOf( Matrix4f(ts.HeadPose.ThePose.Orientation));
+	}
+    return ofMatrix4x4();
 }
 
 //TODO head orientation not considered
@@ -651,8 +659,8 @@ ofVec3f ofxOculusDK2::screenToOculus2D(ofVec3f screenPt, bool considerHeadOrient
 //  viewport.x -= viewport.width  / 2;
 //	viewport.y -= viewport.height / 2;
 	viewport.scaleFromCenter(oculusScreenSpaceScale);
-    return ofVec3f(ofMap(screenPt.x, 0, ofGetWidth(),  viewport.getMinX(), viewport.getMaxX()),
-                   ofMap(screenPt.y, 0, ofGetHeight(), viewport.getMinY(), viewport.getMaxY()),
+    return ofVec3f(ofMap(screenPt.x, 0, windowSize.w,  viewport.getMinX(), viewport.getMaxX()),
+                   ofMap(screenPt.y, 0, windowSize.h, viewport.getMinY(), viewport.getMaxY()),
                    screenPt.z);    
 }
 
@@ -699,8 +707,8 @@ void ofxOculusDK2::multBillboardMatrix(ofVec3f objectPosition, ofVec3f updirecti
 }
 ofVec2f ofxOculusDK2::gazePosition2D(){
     ofVec3f angles = getOrientationQuat().getEuler();
-	return ofVec2f(ofMap(angles.y, 90, -90, 0, ofGetWidth()),
-                   ofMap(angles.z, 90, -90, 0, ofGetHeight()));
+	return ofVec2f(ofMap(angles.y, 90, -90, 0, windowSize.w),
+                   ofMap(angles.z, 90, -90, 0, windowSize.h));
 }
 
 #if SDK_RENDER
