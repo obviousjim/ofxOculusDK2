@@ -16,6 +16,7 @@
 using namespace OVR;
 
 #include "OVR_CAPI.h"
+#include "OVR_CAPI_GL.h"
 
 #include "Util/Util_Render_Stereo.h"
 using namespace OVR::Util::Render;
@@ -62,14 +63,18 @@ class ofxOculusDK2
 	void endRightEye();
 	
 	void draw();
+    void drawSDK();
     
     void setUsePredictedOrientation(bool usePredicted);
 	bool getUsePredictiveOrientation();
 	
+    void dismissSafetyWarning();
+
 	void reloadShader();
 
 	ofQuaternion getOrientationQuat();
 	ofMatrix4x4 getOrientationMat();
+    ofVec3f getTranslation();
 	
 	//default 1 has more constrained mouse movement,
 	//while turning it up increases the reach of the mouse
@@ -108,7 +113,7 @@ class ofxOculusDK2
 	ofFbo& getRenderTarget(){
         return renderTarget;
     }
-
+    
 	ofRectangle getOculusViewport();
 	bool isHD();
 	//allows you to disable moving the camera based on inner ocular distance
@@ -138,6 +143,11 @@ class ofxOculusDK2
 	ofVboMesh			eyeMesh[2];
 	ovrPosef headPose[2];
 	ovrFrameTiming frameTiming;// = ovrHmd_BeginFrameTiming(hmd, 0);
+    unsigned int frameIndex;
+    
+    ovrTexture          EyeTexture[2];
+    
+    ovrVector3f hmdToEyeViewOffsets[2];
 
 	void initializeClientRenderer();
 
@@ -156,9 +166,16 @@ class ofxOculusDK2
     ofFbo backgroundTarget;
 	ofFbo overlayTarget;
 	ofShader distortionShader;
-
+    
+    ofShader debugShader;   // XXX mattebb
+    ofMesh debugMesh;
+    ofImage debugImage;
+    
 	void setupEyeParams(ovrEyeType eye);
 	void setupShaderUniforms(ovrEyeType eye);
+    
+    ofMatrix4x4 getProjectionMatrix(ovrEyeType eye);
+    ofMatrix4x4 getViewMatrix(ovrEyeType eye);
 	
 	void renderOverlay();
 };
