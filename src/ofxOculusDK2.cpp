@@ -167,10 +167,10 @@ ofxOculusDK2::~ofxOculusDK2(){
 
 bool ofxOculusDK2::setup(){
 	ofFbo::Settings settings;
-	//settings.numSamples = 4;
+//	settings.numSamples = 4;
     settings.numSamples = 0;
 	settings.internalformat = GL_RGBA;
-    settings.useDepth = true;
+    settings.useDepth = false;//true;
     settings.textureTarget = GL_TEXTURE_2D;
     settings.minFilter = GL_LINEAR;
     settings.maxFilter = GL_LINEAR;
@@ -258,7 +258,6 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     // END mattebb SDK rendering test
     ovrRenderAPIConfig config = ovrRenderAPIConfig();
     config.Header.API = ovrRenderAPI_OpenGL;
-    cout << "resolution " << hmd->Resolution.w << " -- " << hmd->Resolution.h << endl;
     config.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
     config.Header.Multisample = 0; // configurable ?
     
@@ -277,12 +276,6 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     ((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
     ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
 
-    cout << "renderTargetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
-    cout << "eye tex 0  viewpos: " << EyeTexture[0].Header.RenderViewport.Pos.x << " " << EyeTexture[0].Header.RenderViewport.Pos.y << endl;
-    cout << "eye tex 0 size: " << EyeTexture[0].Header.RenderViewport.Size.w << " " << EyeTexture[0].Header.RenderViewport.Size.h << endl;
-    cout << "eye tex 1 pos: " << EyeTexture[1].Header.RenderViewport.Pos.x << " " << EyeTexture[1].Header.RenderViewport.Pos.y << endl;
-    cout << "eye tex 1 size: " << EyeTexture[1].Header.RenderViewport.Size.w << " " << EyeTexture[1].Header.RenderViewport.Size.h << endl;
-    
     int hmdCaps=0;
     hmdCaps |= ovrHmdCap_DynamicPrediction;
     hmdCaps |= ovrHmdCap_LowPersistence;
@@ -317,7 +310,6 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 			
 			v.getVertices()[vertNum].x = ov->ScreenPosNDC.x;
 			v.getVertices()[vertNum].y = ov->ScreenPosNDC.y;
-			//cout << vertNum<< "/" << meshData.VertexCount << "SCREEN POS IS " << ov->ScreenPosNDC.x << " " <<  ov->ScreenPosNDC.y << endl;
 			v.getVertices()[vertNum].z = ov->TimeWarpFactor;
 
 			v.getNormals()[vertNum].x = ov->TanEyeAnglesR.x;
@@ -403,7 +395,6 @@ void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
     // xxx mattebb
     ovrHmd_GetEyePoses(hmd, frameIndex, hmdToEyeViewOffsets, headPose, NULL);
 
-    //cout << "viewport" << toOf(eyeRenderViewport[eye]) << endl;
 	ofViewport(toOf(eyeRenderViewport[eye]));
 
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
@@ -426,26 +417,20 @@ void ofxOculusDK2::reloadShader(){
 	//this allows you to hack on the shader if you'd like
     if (ofIsGLProgrammableRenderer()) {
         if(ofFile("Shaders_GL3/HmdWarpDK2.vert").exists() && ofFile("Shaders_GL3/HmdWarpDK2.frag").exists()){
-            cout << "** SHADERS loading from file" << endl;
             distortionShader.load("Shaders_GL3/HmdWarpDK2");
         }
         //otherwise we load the hardcoded one
         else{   // XXX mattebb : create an embedded shader for GL3 ?
-            cout << OculusWarpVert << endl<<endl<<endl;
-            cout << OculusWarpFrag << endl;
             distortionShader.setupShaderFromSource(GL_VERTEX_SHADER, OculusWarpVert);
             distortionShader.setupShaderFromSource(GL_FRAGMENT_SHADER, OculusWarpFrag);
             distortionShader.linkProgram();
         }
     } else {
         if(ofFile("Shaders/HmdWarpDK2.vert").exists() && ofFile("Shaders/HmdWarpDK2.frag").exists()){
-            cout << "** SHADERS loading from file" << endl;
             distortionShader.load("Shaders/HmdWarpDK2");
         }
         //otherwise we load the hardcoded one
         else{
-            cout << OculusWarpVert << endl<<endl<<endl;
-            cout << OculusWarpFrag << endl;
             distortionShader.setupShaderFromSource(GL_VERTEX_SHADER, OculusWarpVert);
             distortionShader.setupShaderFromSource(GL_FRAGMENT_SHADER, OculusWarpFrag);
             distortionShader.linkProgram();
@@ -561,15 +546,12 @@ void ofxOculusDK2::endRightEye(){
 }
 
 void ofxOculusDK2::renderOverlay(){
-
-	// cout << "renering overlay!" << endl;
-	
+    
 	ofPushStyle();
 	ofPushMatrix();
 	glPushAttrib(GL_ALL_ATTRIB_BITS);
 	glDisable(GL_LIGHTING);
 	ofDisableDepthTest();
-
 	
 	if(baseCamera != NULL){
 		ofTranslate(baseCamera->getPosition());
