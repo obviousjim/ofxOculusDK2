@@ -517,7 +517,7 @@ void ofxOculusDK2::beginLeftEye(){
 	insideFrame = true;
 
 	renderTarget.begin();
-	ofClear(0,0,255);
+    ofClear(ofGetStyle().bgColor);
 	
 	ofPushView();
 	ofPushMatrix();
@@ -633,7 +633,7 @@ ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
 	
 	//return toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
 	
-	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
+    ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, bUsePredictedOrientation ? ovr_GetTimeInSeconds() : 0.0);
 	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
 		return toOf( Matrix4f(ts.HeadPose.ThePose.Orientation));
 	}
