@@ -14,7 +14,7 @@ ADDONS_PATH = $(OF_PATH)/addons
 // ofxOculusRift
 OFX_OCULUSRIFT_HEADERS = $(ADDONS_PATH)/ofxOculusDK2/src $(ADDONS_PATH)/ofxOculusDK2/libs/LibOVR/Include $(ADDONS_PATH)/ofxOculusDK2/libs/LibOVR/Src
 
-OFX_OCULUSRIFT_LIBS = "$(ADDONS_PATH)/ofxOculusDK2/libs/LibOVR/Lib/MacOS/Release/libovr.a"
+//OFX_OCULUSRIFT_LIBS = "$(ADDONS_PATH)/ofxOculusDK2/libs/LibOVR/Lib/MacOS/Release/libovr.a"
 
 
 // all addons

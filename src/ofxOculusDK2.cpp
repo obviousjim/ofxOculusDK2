@@ -12,7 +12,7 @@
 
 #include <stdio.h>  // XXX mattebb for testing, printf
 
-//#define SDK_RENDER 1
+#define SDK_RENDER 1
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -92,23 +92,25 @@ static const char* OculusWarpFrag = GLSL(120,
 	}
 );
 
-ofQuaternion toOf(const Quatf& q){
+ofQuaternion toOf(const ovrQuatf& q){
 	return ofQuaternion(q.x, q.y, q.z, q.w);
 }
 
-ofMatrix4x4 toOf(const Matrix4f& m){
+ofMatrix4x4 toOf(const ovrMatrix4f& m){
 	return ofMatrix4x4(m.M[0][0],m.M[1][0],m.M[2][0],m.M[3][0],
 					   m.M[0][1],m.M[1][1],m.M[2][1],m.M[3][1],
 					   m.M[0][2],m.M[1][2],m.M[2][2],m.M[3][2],
 					   m.M[0][3],m.M[1][3],m.M[2][3],m.M[3][3]);
 }
 
-Matrix4f toOVR(const ofMatrix4x4& m){
+ovrMatrix4f toOVR(const ofMatrix4x4& m){
 	const float* cm = m.getPtr();
-	return Matrix4f(cm[ 0],cm[ 1],cm[ 2],cm[ 3],
-					cm[ 4],cm[ 5],cm[ 6],cm[ 7],
-					cm[ 8],cm[ 9],cm[10],cm[11],
-					cm[12],cm[13],cm[14],cm[15]);
+    ovrMatrix4f om;
+    om.M[0][0] = cm[ 0]; om.M[1][0] = cm[ 1]; om.M[2][0] = cm[ 2]; om.M[3][0] = cm[ 3];
+    om.M[0][1] = cm[ 4]; om.M[1][1] = cm[ 5]; om.M[2][1] = cm[ 6]; om.M[3][1] = cm[ 7];
+    om.M[0][2] = cm[ 8]; om.M[1][2] = cm[ 9]; om.M[2][2] = cm[10]; om.M[3][2] = cm[11];
+    om.M[0][3] = cm[12]; om.M[1][3] = cm[13]; om.M[2][3] = cm[14]; om.M[3][3] = cm[15];
+    return om;
 }
 
 ofRectangle toOf(const ovrRecti& vp){
@@ -213,7 +215,9 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     else {
         // In Direct App-rendered mode, we can use smaller window size,
         // as it can have its own contents and isn't tied to the buffer.
-        windowSize = Sizei(ofGetWidth(), ofGetHeight()); //Sizei(960, 540); avoid rotated output bug.
+        ovrSizei wsize;
+        wsize.w = ofGetWidth(); wsize.h = ofGetHeight();
+        windowSize = wsize; //Sizei(960, 540); avoid rotated output bug.
     }
     
 	// Start the sensor which provides the Rift’s pose and motion.
@@ -225,8 +229,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	eyeFov[0] = hmd->DefaultEyeFov[0];
 	eyeFov[1] = hmd->DefaultEyeFov[1];
     
-    Sizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], 1.0f);
-	Sizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], 1.0f);
+    ovrSizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], 1.0f);
+	ovrSizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], 1.0f);
     
 	renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
 	renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
@@ -247,19 +251,27 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     hmdToEyeViewOffsets[0] = eyeRenderDesc[0].HmdToEyeViewOffset;
     hmdToEyeViewOffsets[1] = eyeRenderDesc[1].HmdToEyeViewOffset;
 
-	eyeRenderViewport[0].Pos  = Vector2i(0,0);
-    eyeRenderViewport[0].Size = Sizei(renderTargetSize.w / 2, renderTargetSize.h);
-    eyeRenderViewport[1].Pos  = Vector2i((renderTargetSize.w + 1) / 2, 0);
+    ovrVector2i pos0, pos1;
+    ovrSizei size0;
+    pos0.x = 0; pos0.y = 0;
+    pos1.x =(renderTargetSize.w + 1) / 2; pos1.y = 0;
+    size0.w = renderTargetSize.w / 2; size0.h = renderTargetSize.h;
+    eyeRenderViewport[0].Pos  = pos0; //ovrVector2i(0,0);
+    eyeRenderViewport[0].Size = size0; //ovrSizei(renderTargetSize.w / 2, renderTargetSize.h);
+    eyeRenderViewport[1].Pos  = pos1; //ovrVector2i((renderTargetSize.w + 1) / 2, 0);
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
-    unsigned int distortionCaps = ovrDistortionCap_Chromatic | ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive | ovrDistortionCap_SRGB;
+    unsigned int distortionCaps =  ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive | ovrDistortionCap_SRGB;
     
 #if SDK_RENDER
     // END mattebb SDK rendering test
+    
+    ovrSizei resolution;
+    resolution.w = hmd->Resolution.w; resolution.h = hmd->Resolution.h;
     ovrRenderAPIConfig config = ovrRenderAPIConfig();
     config.Header.API = ovrRenderAPI_OpenGL;
-    cout << "resolution " << hmd->Resolution.w << " -- " << hmd->Resolution.h << endl;
-    config.Header.RTSize = Sizei(hmd->Resolution.w, hmd->Resolution.h);
+//    cout << "resolution " << hmd->Resolution.w << " -- " << hmd->Resolution.h << endl;
+    config.Header.BackBufferSize = resolution;
     config.Header.Multisample = 0; // configurable ?
     
     // Store texture pointers that will be passed for rendering.
@@ -277,12 +289,12 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     ((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
     ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
 
-    cout << "renderTargetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
-    cout << "eye tex 0  viewpos: " << EyeTexture[0].Header.RenderViewport.Pos.x << " " << EyeTexture[0].Header.RenderViewport.Pos.y << endl;
-    cout << "eye tex 0 size: " << EyeTexture[0].Header.RenderViewport.Size.w << " " << EyeTexture[0].Header.RenderViewport.Size.h << endl;
-    cout << "eye tex 1 pos: " << EyeTexture[1].Header.RenderViewport.Pos.x << " " << EyeTexture[1].Header.RenderViewport.Pos.y << endl;
-    cout << "eye tex 1 size: " << EyeTexture[1].Header.RenderViewport.Size.w << " " << EyeTexture[1].Header.RenderViewport.Size.h << endl;
-    
+//    cout << "renderTargetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
+//    cout << "eye tex 0  viewpos: " << EyeTexture[0].Header.RenderViewport.Pos.x << " " << EyeTexture[0].Header.RenderViewport.Pos.y << endl;
+//    cout << "eye tex 0 size: " << EyeTexture[0].Header.RenderViewport.Size.w << " " << EyeTexture[0].Header.RenderViewport.Size.h << endl;
+//    cout << "eye tex 1 pos: " << EyeTexture[1].Header.RenderViewport.Pos.x << " " << EyeTexture[1].Header.RenderViewport.Pos.y << endl;
+//    cout << "eye tex 1 size: " << EyeTexture[1].Header.RenderViewport.Size.w << " " << EyeTexture[1].Header.RenderViewport.Size.h << endl;
+//    
     int hmdCaps=0;
     hmdCaps |= ovrHmdCap_DynamicPrediction;
     hmdCaps |= ovrHmdCap_LowPersistence;
@@ -635,7 +647,9 @@ ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
 	
 	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
 	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
-		return toOf( Matrix4f(ts.HeadPose.ThePose.Orientation));
+		/// XXX MATTEBB WORK OUT CONVERSION
+        //return toOf( Matrix4f(ts.HeadPose.ThePose.Orientation));
+        
 	}
     return ofMatrix4x4();
 }

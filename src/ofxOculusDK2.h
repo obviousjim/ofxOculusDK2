@@ -12,12 +12,12 @@
 #include "ofMain.h"
 
 //#include "OVR.h"
-#include "OVR_Kernel.h"
-using namespace OVR;
+//#include "OVR_Kernel.h"
+//using namespace OVR;
 
 #include "OVR_CAPI.h"
 #include "OVR_CAPI_GL.h"
-
+/*
 #include "Util/Util_Render_Stereo.h"
 using namespace OVR::Util::Render;
 
@@ -25,6 +25,7 @@ using namespace OVR::Util::Render;
 using namespace OVR::CAPI;
 
 #include "Sensors/OVR_DeviceConstants.h"
+ */
 #include <iostream>
 
 
@@ -152,10 +153,8 @@ class ofxOculusDK2
 
 	void initializeClientRenderer();
 
-    Sizei               windowSize;
+    ovrSizei               windowSize;
     
-
-	OVR::Util::Render::StereoConfig stereo;
 	float renderScale;
 	ofMesh overlayMesh;
 	ofMatrix4x4 orientationMatrix;
@@ -163,7 +162,7 @@ class ofxOculusDK2
 	ofVboMesh leftEyeMesh;
 	ofVboMesh rightEyeMesh;
 
-    Sizei renderTargetSize;
+    ovrSizei renderTargetSize;
 	ofFbo renderTarget;
     ofFbo backgroundTarget;
 	ofFbo overlayTarget;
