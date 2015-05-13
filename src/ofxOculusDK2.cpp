@@ -12,7 +12,7 @@
 
 #include <stdio.h>  // XXX mattebb for testing, printf
 
-#define SDK_RENDER 1
+#define SDK_RENDER 0
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -129,6 +129,20 @@ ovrVector3f toOVR(const ofVec3f& v ){
 	return ov;
 }
 
+ovrVector2i toOVRVector2i(const int x, const int y) {
+    ovrVector2i v;
+    v.x = x;
+    v.y = y;
+    return v;
+}
+
+ovrSizei toOVRSizei(const int w, const int h) {
+    ovrSizei s;
+    s.w = w;
+    s.h = h;
+    return s;
+}
+
 ofxOculusDK2::ofxOculusDK2(){
     hmd = 0;
     insideFrame = false;
@@ -137,10 +151,27 @@ ofxOculusDK2::ofxOculusDK2(){
     bUsingDebugHmd = false;
     startTrackingCaps = 0;
     
-	bHmdSettingsChanged = false;
-    bPositionTrackingEnabled = true;
+    // default hmd capabilities
+    bNoMirrorToWindow = false;
+    bDisplayOff = false;
     bLowPersistence = true;
     bDynamicPrediction = true;
+    bNoVsync = true;
+    
+    // default distortion capabilities
+    bTimeWarp = true;
+    bVignette = true;
+    bSRGB = false;
+    bOverdrive = true;
+    bHqDistortion = false;
+    bTimewarpJitDelay = false;
+    
+	bHmdSettingsChanged = true;
+    bRenderTargetSizeChanged = true;
+    
+    pixelDensity = 1.0;
+    
+    bPositionTracking = true;
     
     baseCamera = NULL;
 	bSetup = false;
@@ -182,6 +213,183 @@ bool ofxOculusDK2::setup(){
 	return setup(settings);
 }
 
+ofFbo::Settings ofxOculusDK2::renderTargetFboSettings() {
+    ofFbo::Settings settings;
+    //settings.numSamples = 4;
+    settings.numSamples = 0;
+    settings.internalformat = GL_RGBA;
+    settings.useDepth = true;
+    settings.textureTarget = GL_TEXTURE_2D;
+    settings.minFilter = GL_LINEAR;
+    settings.maxFilter = GL_LINEAR;
+    settings.wrapModeHorizontal = GL_CLAMP_TO_EDGE;
+    settings.wrapModeVertical = GL_CLAMP_TO_EDGE;
+    settings.depthStencilInternalFormat = GL_DEPTH_COMPONENT24;
+    return settings;
+}
+
+unsigned int ofxOculusDK2::setupDistortionCaps() {
+    unsigned int caps = 0;
+    
+    if (bTimeWarp)
+        caps |= ovrDistortionCap_TimeWarp;
+    if (bVignette)
+        caps |= ovrDistortionCap_Vignette;
+    if (bSRGB)
+        caps |= ovrDistortionCap_SRGB;
+    if (bOverdrive)
+        caps |= ovrDistortionCap_Overdrive;
+    if (bHqDistortion)
+        caps |= ovrDistortionCap_HqDistortion;
+    if (bTimewarpJitDelay)
+        caps |= ovrDistortionCap_TimewarpJitDelay;
+    return caps;
+}
+
+unsigned int ofxOculusDK2::setupHmdCaps() {
+    unsigned int caps = 0;
+    
+    if (bNoMirrorToWindow)
+        caps |= ovrHmdCap_NoMirrorToWindow;
+    if (bDisplayOff)
+        caps |= ovrHmdCap_DisplayOff;
+    if (bLowPersistence)
+        caps |= ovrHmdCap_LowPersistence;
+    if (bDynamicPrediction)
+        caps |= ovrHmdCap_DynamicPrediction;
+    if (bNoVsync)
+        caps |= ovrHmdCap_NoVSync;
+    return caps;
+}
+
+
+
+void ofxOculusDK2::updateHmdSettings(){
+    if (!bHmdSettingsChanged) return;
+
+    // Initialize eye rendering information for ovrHmd_Configure.
+    // The viewport sizes are re-computed in case RenderTargetSize changed due to HW limitations.
+    eyeFov[0] = hmd->DefaultEyeFov[0];
+    eyeFov[1] = hmd->DefaultEyeFov[1];
+    
+    eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
+    eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
+    
+    if (bRenderTargetSizeChanged) {
+        
+        ovrSizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], pixelDensity);
+        ovrSizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], pixelDensity);
+        
+        renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
+        renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
+        
+        // XXX XXX FBO ALLOCATION
+        ofFbo::Settings render_settings = renderTargetFboSettings();
+        
+        render_settings.width = renderTargetSize.w;
+        render_settings.height = renderTargetSize.h;
+        
+        renderTarget.allocate(render_settings);
+        backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
+        
+    }
+    
+    eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
+    eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
+    
+    hmdToEyeViewOffsets[0] = eyeRenderDesc[0].HmdToEyeViewOffset;
+    hmdToEyeViewOffsets[1] = eyeRenderDesc[1].HmdToEyeViewOffset;
+    
+    eyeRenderViewport[0].Pos  = toOVRVector2i(0,0);
+    eyeRenderViewport[0].Size = toOVRSizei(renderTargetSize.w / 2, renderTargetSize.h);
+    eyeRenderViewport[1].Pos  = toOVRVector2i((renderTargetSize.w + 1) / 2, 0);
+    eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
+    
+    unsigned int distortionCaps = setupDistortionCaps();
+    unsigned int hmdCaps = setupHmdCaps();
+    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
+    
+#if SDK_RENDER
+    ovrRenderAPIConfig config = ovrRenderAPIConfig();
+    
+    config.Header.API = ovrRenderAPI_OpenGL;
+    config.Header.BackBufferSize = toOVRSizei(hmd->Resolution.w, hmd->Resolution.h);
+    config.Header.Multisample = 0; // configurable ?
+    
+    // Store texture pointers that will be passed for rendering.
+    // Same texture is used, but with different viewports.
+    memset(EyeTexture, 0, 2 * sizeof(ovrGLTexture));
+    EyeTexture[0].Header.API            = ovrRenderAPI_OpenGL;
+    EyeTexture[0].Header.TextureSize    = renderTargetSize;
+    EyeTexture[0].Header.RenderViewport = eyeRenderViewport[0];
+    
+    // same texture, shifted viewport
+    EyeTexture[1] = EyeTexture[0];
+    EyeTexture[1].Header.RenderViewport = eyeRenderViewport[1];
+    
+    // set the tex IDs from the ofFbo
+    ((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
+    ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
+
+    if (!ovrHmd_ConfigureRendering( hmd, &config, distortionCaps, eyeFov, eyeRenderDesc ))
+        return;
+
+    
+#else
+    //Generate distortion mesh for each eye
+    for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
+        // Allocate & generate distortion mesh vertices.
+        ovrDistortionMesh meshData;
+        
+        ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, distortionCaps, &meshData);
+        ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], UVScaleOffset[eyeNum]);
+        
+        // Now parse the vertex data and create a render ready vertex buffer from it
+        ofVboMesh& v = eyeMesh[eyeNum];
+        v.clear();
+        v.getVertices().resize(meshData.VertexCount);
+        v.getColors().resize(meshData.VertexCount);
+        v.getNormals().resize(meshData.VertexCount);
+        //		v.getTexCoords().resize(meshData.VertexCount);
+        ovrDistortionVertex * ov = meshData.pVertexData;
+        for( unsigned vertNum = 0; vertNum < meshData.VertexCount; vertNum++ ){
+            
+            v.getVertices()[vertNum].x = ov->ScreenPosNDC.x;
+            v.getVertices()[vertNum].y = ov->ScreenPosNDC.y;
+            //cout << vertNum<< "/" << meshData.VertexCount << "SCREEN POS IS " << ov->ScreenPosNDC.x << " " <<  ov->ScreenPosNDC.y << endl;
+            v.getVertices()[vertNum].z = ov->TimeWarpFactor;
+            
+            v.getNormals()[vertNum].x = ov->TanEyeAnglesR.x;
+            v.getNormals()[vertNum].y = ov->TanEyeAnglesR.y;
+            v.getNormals()[vertNum].z = ov->VignetteFactor;
+            
+            v.getColors()[vertNum].r = ov->TanEyeAnglesG.x;
+            v.getColors()[vertNum].g = ov->TanEyeAnglesG.y;
+            v.getColors()[vertNum].b = ov->TanEyeAnglesB.x;
+            v.getColors()[vertNum].a = ov->TanEyeAnglesB.y;
+            
+            ov++;
+        }
+        
+        //Register this mesh with the renderer
+        v.getIndices().resize(meshData.IndexCount);
+        
+        unsigned short * oi = meshData.pIndexData;
+        for(int i = 0; i < meshData.IndexCount; i++){
+            v.getIndices()[i] = *oi;
+            oi++;
+        }
+        
+        ovrHmd_DestroyDistortionMesh( &meshData );
+    }
+    
+    reloadShader();
+    
+#endif
+    
+    bHmdSettingsChanged = false;
+}
+
 bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 	
 	if(bSetup){
@@ -196,7 +404,7 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     
 	if(!hmd){
 		// If we didn't detect an Hmd, create a simulated one for debugging.
-		hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
+		hmd = ovrHmd_CreateDebug(ovrHmd_DK2);
 		if (!hmd) {   // Failed Hmd creation.
             ofLogError("ofxOculusDK2::setup") << "HMD not found";
 			return false;
@@ -226,9 +434,12 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
 
-	eyeFov[0] = hmd->DefaultEyeFov[0];
-	eyeFov[1] = hmd->DefaultEyeFov[1];
+	//eyeFov[0] = hmd->DefaultEyeFov[0];
+	//eyeFov[1] = hmd->DefaultEyeFov[1];
     
+    updateHmdSettings();
+    
+    /*
     ovrSizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], 1.0f);
 	ovrSizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], 1.0f);
     
@@ -241,36 +452,27 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     renderTarget.allocate(render_settings);
     backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
 
-//	backgroundTarget.begin();
-//    ofClear(0.0, 0.0, 0.0);
-//	backgroundTarget.end();
-
 	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
 	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
     
     hmdToEyeViewOffsets[0] = eyeRenderDesc[0].HmdToEyeViewOffset;
     hmdToEyeViewOffsets[1] = eyeRenderDesc[1].HmdToEyeViewOffset;
 
-    ovrVector2i pos0, pos1;
-    ovrSizei size0;
-    pos0.x = 0; pos0.y = 0;
-    pos1.x =(renderTargetSize.w + 1) / 2; pos1.y = 0;
-    size0.w = renderTargetSize.w / 2; size0.h = renderTargetSize.h;
-    eyeRenderViewport[0].Pos  = pos0; //ovrVector2i(0,0);
-    eyeRenderViewport[0].Size = size0; //ovrSizei(renderTargetSize.w / 2, renderTargetSize.h);
-    eyeRenderViewport[1].Pos  = pos1; //ovrVector2i((renderTargetSize.w + 1) / 2, 0);
+    eyeRenderViewport[0].Pos  = toOVRVector2i(0,0);
+    eyeRenderViewport[0].Size = toOVRSizei(renderTargetSize.w / 2, renderTargetSize.h);
+    eyeRenderViewport[1].Pos  = toOVRVector2i((renderTargetSize.w + 1) / 2, 0);
     eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
 
-    unsigned int distortionCaps =  ovrDistortionCap_TimeWarp | ovrDistortionCap_Vignette | ovrDistortionCap_Overdrive | ovrDistortionCap_SRGB;
-    
+    */
+/*
 #if SDK_RENDER
-    // END mattebb SDK rendering test
     
     ovrSizei resolution;
     resolution.w = hmd->Resolution.w; resolution.h = hmd->Resolution.h;
+    
     ovrRenderAPIConfig config = ovrRenderAPIConfig();
+    
     config.Header.API = ovrRenderAPI_OpenGL;
-//    cout << "resolution " << hmd->Resolution.w << " -- " << hmd->Resolution.h << endl;
     config.Header.BackBufferSize = resolution;
     config.Header.Multisample = 0; // configurable ?
     
@@ -289,25 +491,15 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     ((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
     ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
 
-//    cout << "renderTargetsize : " << renderTargetSize.w << " " << renderTargetSize.h << endl;
-//    cout << "eye tex 0  viewpos: " << EyeTexture[0].Header.RenderViewport.Pos.x << " " << EyeTexture[0].Header.RenderViewport.Pos.y << endl;
-//    cout << "eye tex 0 size: " << EyeTexture[0].Header.RenderViewport.Size.w << " " << EyeTexture[0].Header.RenderViewport.Size.h << endl;
-//    cout << "eye tex 1 pos: " << EyeTexture[1].Header.RenderViewport.Pos.x << " " << EyeTexture[1].Header.RenderViewport.Pos.y << endl;
-//    cout << "eye tex 1 size: " << EyeTexture[1].Header.RenderViewport.Size.w << " " << EyeTexture[1].Header.RenderViewport.Size.h << endl;
-//    
-    int hmdCaps=0;
-    hmdCaps |= ovrHmdCap_DynamicPrediction;
-    hmdCaps |= ovrHmdCap_LowPersistence;
+    unsigned int hmdCaps = ovrHmdCap_NoVSync; //ovrHmdCap_DynamicPrediction | ovrHmdCap_LowPersistence; // | ovrHmdCap_NoVSync;
     
     ovrHmd_SetEnabledCaps(hmd, hmdCaps);
     
     if (!ovrHmd_ConfigureRendering( hmd, &config, distortionCaps, eyeFov, eyeRenderDesc ))
     {
-        // Fail exit? TBD
         return;
     }
     
-    // END mattebb SDK rendering test
 #else
 	//Generate distortion mesh for each eye
 	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
@@ -359,8 +551,9 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     reloadShader();
     
 #endif
+    */
 
-    bPositionTrackingEnabled = (hmd->TrackingCaps & ovrTrackingCap_Position);
+    bPositionTracking = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
 	bSetup = true;
 	return true;
@@ -521,7 +714,7 @@ void ofxOculusDK2::beginLeftEye(){
 	if(!bSetup) return;
 	
 #if SDK_RENDER
-    frameTiming = ovrHmd_BeginFrame(hmd, ++frameIndex);
+    frameTiming = ovrHmd_BeginFrame(hmd, 0);
 #else
     frameTiming = ovrHmd_BeginFrameTiming(hmd, ++frameIndex);
 #endif
@@ -727,12 +920,13 @@ ofVec2f ofxOculusDK2::gazePosition2D(){
 
 #if SDK_RENDER
 void ofxOculusDK2::draw(){
-	static int done_debug=-1;
-    
 	if(!bSetup) return;
 	
 	if(!insideFrame) return;
 
+    /*
+    static int done_debug=-1;
+     
     if (done_debug==0) {
         ofPixels dp;
         renderTarget.readToPixels(dp);
@@ -740,11 +934,13 @@ void ofxOculusDK2::draw(){
         debugImage.saveImage("debug.png");
         done_debug=1;
     }
+     */
     
     ovrHmd_EndFrame(hmd, headPose, EyeTexture);
 
-    if (!ofIsGLProgrammableRenderer())
-        glUseProgram(0);
+    // XXX This state leakage workaround seems to not be necessary any more? (0.5.0.1)
+    //if (!ofIsGLProgrammableRenderer())
+    //    glUseProgram(0);
     
     bUseOverlay = false;
 	bUseBackground = false;

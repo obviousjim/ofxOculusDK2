@@ -48,8 +48,8 @@ class ofxOculusDK2
 	bool isSetup();
 	void reset();
 	bool lockView;
-
-	//draw background, before rendering eyes
+    
+    //draw background, before rendering eyes
     void beginBackground();
     void endBackground();
 
@@ -122,15 +122,31 @@ class ofxOculusDK2
 	bool applyTranslation;
 
   private:
+    
 	bool bSetup;
     bool insideFrame;
     bool bUsingDebugHmd;
     unsigned startTrackingCaps;
     
     bool bHmdSettingsChanged;
-    bool bPositionTrackingEnabled;
+    bool bRenderTargetSizeChanged;
+
+    bool bPositionTracking;
+    
+    // hmd capabilities
+    bool bNoMirrorToWindow; // direct mode only - ExtendDesktop is off
+    bool bDisplayOff; // direct mode only - ExtendDesktop is off
     bool bLowPersistence;
     bool bDynamicPrediction;
+    bool bNoVsync;
+    
+    // distortion caps
+    bool bTimeWarp;
+    bool bVignette;
+    bool bSRGB;
+    bool bOverdrive;
+    bool bHqDistortion;
+    bool bTimewarpJitDelay;
     
 	bool bUsePredictedOrientation;
 	bool bUseBackground;
@@ -155,13 +171,15 @@ class ofxOculusDK2
 
     ovrSizei               windowSize;
     
-	float renderScale;
 	ofMesh overlayMesh;
 	ofMatrix4x4 orientationMatrix;
 	
 	ofVboMesh leftEyeMesh;
 	ofVboMesh rightEyeMesh;
 
+    ofFbo::Settings renderTargetFboSettings();
+    
+    float pixelDensity;
     ovrSizei renderTargetSize;
 	ofFbo renderTarget;
     ofFbo backgroundTarget;
@@ -179,4 +197,8 @@ class ofxOculusDK2
     ofMatrix4x4 getViewMatrix(ovrEyeType eye);
 	
 	void renderOverlay();
+
+    void updateHmdSettings();
+    unsigned int setupDistortionCaps();
+    unsigned int setupHmdCaps();
 };
