@@ -6,7 +6,7 @@ void testApp::setup()
 {
 	ofBackground(0);
 	ofSetLogLevel( OF_LOG_VERBOSE );
-	ofSetVerticalSync( true );
+	//ofSetVerticalSync( true );
     ofEnableDepthTest();
    
     ofSetWindowPosition(1920, 0);
@@ -19,8 +19,8 @@ void testApp::setup()
 	oculusRift.baseCamera = &cam;
 	oculusRift.setup();
 	
-    // needed for programmable renderer
-    ofViewport(ofGetNativeViewport());
+    // needed for programmable renderer -- 0.5.0.1 SDK no longer needed?
+    //ofViewport(ofGetNativeViewport());
     
 	for(int i = 0; i < 20; i++){
 		DemoSphere d;
