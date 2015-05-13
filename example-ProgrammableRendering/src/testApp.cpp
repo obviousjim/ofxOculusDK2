@@ -216,6 +216,9 @@ void testApp::keyPressed(int key)
 	if(key == 's'){
 		oculusRift.reloadShader();
 	}
+    if(key == 'v'){
+        oculusRift.enableVignette(false);
+    }
 	
 	if(key == 'l'){
 		oculusRift.lockView = !oculusRift.lockView;

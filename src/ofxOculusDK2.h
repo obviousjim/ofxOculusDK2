@@ -71,6 +71,7 @@ class ofxOculusDK2
 	
     void dismissSafetyWarning();
     void recenterPose();
+    void enableVignette(bool state);
 
 	void reloadShader();
 

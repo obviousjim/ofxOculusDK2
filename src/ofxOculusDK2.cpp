@@ -266,6 +266,8 @@ unsigned int ofxOculusDK2::setupHmdCaps() {
 
 void ofxOculusDK2::updateHmdSettings(){
     if (!bHmdSettingsChanged) return;
+    
+        cout << "updateing settings" << endl;
 
     // Initialize eye rendering information for ovrHmd_Configure.
     // The viewport sizes are re-computed in case RenderTargetSize changed due to HW limitations.
@@ -283,15 +285,12 @@ void ofxOculusDK2::updateHmdSettings(){
         renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
         renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
         
-        // XXX XXX FBO ALLOCATION
         ofFbo::Settings render_settings = renderTargetFboSettings();
-        
         render_settings.width = renderTargetSize.w;
         render_settings.height = renderTargetSize.h;
         
         renderTarget.allocate(render_settings);
         backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
-        
     }
     
     eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
@@ -340,7 +339,7 @@ void ofxOculusDK2::updateHmdSettings(){
     for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
         // Allocate & generate distortion mesh vertices.
         ovrDistortionMesh meshData;
-        
+
         ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, distortionCaps, &meshData);
         ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], UVScaleOffset[eyeNum]);
         
@@ -433,126 +432,9 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		ovrTrackingCap_Orientation | 
 		ovrTrackingCap_MagYawCorrection | 
 		ovrTrackingCap_Position, 0);
-
-	//eyeFov[0] = hmd->DefaultEyeFov[0];
-	//eyeFov[1] = hmd->DefaultEyeFov[1];
     
     updateHmdSettings();
-    
-    /*
-    ovrSizei recommenedTex0Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Left, eyeFov[0], 1.0f);
-	ovrSizei recommenedTex1Size = ovrHmd_GetFovTextureSize(hmd, ovrEye_Right, eyeFov[1], 1.0f);
-    
-	renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
-	renderTargetSize.h = max ( recommenedTex0Size.h, recommenedTex1Size.h );
-
-	render_settings.width = renderTargetSize.w;
-	render_settings.height = renderTargetSize.h;
-    
-    renderTarget.allocate(render_settings);
-    backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
-
-	eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
-	eyeRenderDesc[1] = ovrHmd_GetRenderDesc(hmd, ovrEye_Right, eyeFov[1]);
-    
-    hmdToEyeViewOffsets[0] = eyeRenderDesc[0].HmdToEyeViewOffset;
-    hmdToEyeViewOffsets[1] = eyeRenderDesc[1].HmdToEyeViewOffset;
-
-    eyeRenderViewport[0].Pos  = toOVRVector2i(0,0);
-    eyeRenderViewport[0].Size = toOVRSizei(renderTargetSize.w / 2, renderTargetSize.h);
-    eyeRenderViewport[1].Pos  = toOVRVector2i((renderTargetSize.w + 1) / 2, 0);
-    eyeRenderViewport[1].Size = eyeRenderViewport[0].Size;
-
-    */
-/*
-#if SDK_RENDER
-    
-    ovrSizei resolution;
-    resolution.w = hmd->Resolution.w; resolution.h = hmd->Resolution.h;
-    
-    ovrRenderAPIConfig config = ovrRenderAPIConfig();
-    
-    config.Header.API = ovrRenderAPI_OpenGL;
-    config.Header.BackBufferSize = resolution;
-    config.Header.Multisample = 0; // configurable ?
-    
-    // Store texture pointers that will be passed for rendering.
-    // Same texture is used, but with different viewports.
-    memset(EyeTexture, 0, 2 * sizeof(ovrGLTexture));
-    EyeTexture[0].Header.API            = ovrRenderAPI_OpenGL;
-    EyeTexture[0].Header.TextureSize    = renderTargetSize;
-    EyeTexture[0].Header.RenderViewport = eyeRenderViewport[0];
-
-    // same texture, shifted viewport
-    EyeTexture[1] = EyeTexture[0];
-    EyeTexture[1].Header.RenderViewport = eyeRenderViewport[1];
-    
-    // set the tex IDs from the ofFbo
-    ((ovrGLTexture &)EyeTexture[0]).OGL.TexId = renderTarget.getFbo();
-    ((ovrGLTexture &)EyeTexture[1]).OGL.TexId = renderTarget.getFbo();
-
-    unsigned int hmdCaps = ovrHmdCap_NoVSync; //ovrHmdCap_DynamicPrediction | ovrHmdCap_LowPersistence; // | ovrHmdCap_NoVSync;
-    
-    ovrHmd_SetEnabledCaps(hmd, hmdCaps);
-    
-    if (!ovrHmd_ConfigureRendering( hmd, &config, distortionCaps, eyeFov, eyeRenderDesc ))
-    {
-        return;
-    }
-    
-#else
-	//Generate distortion mesh for each eye
-	for ( int eyeNum = 0; eyeNum < 2; eyeNum++ ){
-		// Allocate & generate distortion mesh vertices.
-		ovrDistortionMesh meshData;
-
-		ovrHmd_CreateDistortionMesh(hmd, eyeRenderDesc[eyeNum].Eye, eyeRenderDesc[eyeNum].Fov, distortionCaps, &meshData);
-		ovrHmd_GetRenderScaleAndOffset(eyeRenderDesc[eyeNum].Fov, renderTargetSize, eyeRenderViewport[eyeNum], UVScaleOffset[eyeNum]);
-
-		// Now parse the vertex data and create a render ready vertex buffer from it
-		ofVboMesh& v = eyeMesh[eyeNum];
-		v.clear();
-		v.getVertices().resize(meshData.VertexCount);
-		v.getColors().resize(meshData.VertexCount);
-		v.getNormals().resize(meshData.VertexCount);
-//		v.getTexCoords().resize(meshData.VertexCount);
-		ovrDistortionVertex * ov = meshData.pVertexData;
-		for( unsigned vertNum = 0; vertNum < meshData.VertexCount; vertNum++ ){
-			
-			v.getVertices()[vertNum].x = ov->ScreenPosNDC.x;
-			v.getVertices()[vertNum].y = ov->ScreenPosNDC.y;
-			//cout << vertNum<< "/" << meshData.VertexCount << "SCREEN POS IS " << ov->ScreenPosNDC.x << " " <<  ov->ScreenPosNDC.y << endl;
-			v.getVertices()[vertNum].z = ov->TimeWarpFactor;
-
-			v.getNormals()[vertNum].x = ov->TanEyeAnglesR.x;
-			v.getNormals()[vertNum].y = ov->TanEyeAnglesR.y;
-			v.getNormals()[vertNum].z = ov->VignetteFactor;
-
-			v.getColors()[vertNum].r = ov->TanEyeAnglesG.x;
-			v.getColors()[vertNum].g = ov->TanEyeAnglesG.y;
-			v.getColors()[vertNum].b = ov->TanEyeAnglesB.x;
-			v.getColors()[vertNum].a = ov->TanEyeAnglesB.y;
-			
-			ov++;
-		}
-
-		//Register this mesh with the renderer
-		v.getIndices().resize(meshData.IndexCount);
-
-		unsigned short * oi = meshData.pIndexData;
-		for(int i = 0; i < meshData.IndexCount; i++){
-			v.getIndices()[i] = *oi;
-			oi++;
-		}
-
-		ovrHmd_DestroyDistortionMesh( &meshData );
-	}
-    
-    reloadShader();
-    
-#endif
-    */
-
+  
     bPositionTracking = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
 	bSetup = true;
@@ -561,6 +443,12 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 
 bool ofxOculusDK2::isSetup(){
 	return bSetup;
+}
+
+void ofxOculusDK2::enableVignette(bool state) {
+    bVignette = state;
+    bHmdSettingsChanged = true;
+    updateHmdSettings();
 }
 
 void ofxOculusDK2::reset(){
