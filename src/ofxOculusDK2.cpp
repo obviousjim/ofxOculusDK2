@@ -835,14 +835,10 @@ ofVec3f ofxOculusDK2::worldToScreen(ofVec3f worldPosition, bool considerHeadOrie
 }
 
 ofMatrix4x4 ofxOculusDK2::getOrientationMat(){
-	
-	//return toOf(Matrix4f(pFusionResult->GetPredictedOrientation()));
-	
 	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
+    
 	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
-		/// XXX MATTEBB WORK OUT CONVERSION
-        //return toOf( Matrix4f(ts.HeadPose.ThePose.Orientation));
-        
+        return ofMatrix4x4(toOf(ts.HeadPose.ThePose.Orientation));
 	}
     return ofMatrix4x4();
 }
