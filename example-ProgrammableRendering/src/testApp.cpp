@@ -249,6 +249,9 @@ void testApp::keyPressed(int key)
         oculusRift.setPixelDensity( oculusRift.getPixelDensity()+0.1 );
     }
 
+    if(key == 'p'){
+        oculusRift.setPositionTracking( !oculusRift.getPositionTracking() );
+    }
 }
 
 //--------------------------------------------------------------
