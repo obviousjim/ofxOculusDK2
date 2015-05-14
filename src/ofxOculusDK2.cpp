@@ -176,7 +176,6 @@ ofxOculusDK2::ofxOculusDK2(){
     baseCamera = NULL;
 	bSetup = false;
 	lockView = false;
-	bUsePredictedOrientation = true;
 	bUseOverlay = false;
 	bUseBackground = false;
 	overlayZDistance = -200;
@@ -410,14 +409,14 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
 		}
         else {
             ofLogNotice("ofxOculusDK2::setup") << "HMD not found, creating simulated device.";
-            printf("simulated hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
+            //printf("simulated hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
             bUsingDebugHmd = true;
         }
 	}
     
     if (hmd->HmdCaps & ovrHmdCap_ExtendDesktop) {
         windowSize = hmd->Resolution;
-        printf("hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
+        //printf("hmd->resolution %d %d \n", hmd->Resolution.w, hmd->Resolution.h);
     }
     else {
         // In Direct App-rendered mode, we can use smaller window size,
@@ -594,7 +593,6 @@ void ofxOculusDK2::setNoVsync(bool state) {
     setHmdCap(ovrHmdCap_NoVSync, state);
 }
 
-
 float ofxOculusDK2::getPixelDensity(void) {
     return pixelDensity;
 }
@@ -605,9 +603,6 @@ void ofxOculusDK2::setPixelDensity(float density) {
     updateHmdSettings();
 }
 
-
-
-
 void ofxOculusDK2::reset(){
 	if(bSetup){
 		ovrHmd_RecenterPose(hmd);
@@ -615,7 +610,6 @@ void ofxOculusDK2::reset(){
 }
 
 ofQuaternion ofxOculusDK2::getOrientationQuat(){
-//	return toOf(pFusionResult->GetPredictedOrientation());
 
 	ovrTrackingState ts = ovrHmd_GetTrackingState(hmd, ovr_GetTimeInSeconds());
 	if (ts.StatusFlags & (ovrStatus_OrientationTracked | ovrStatus_PositionTracked)){
@@ -1039,13 +1033,6 @@ void ofxOculusDK2::dismissSafetyWarning(void) {
 
 void ofxOculusDK2::recenterPose(void) {
     ovrHmd_RecenterPose(hmd);
-}
-
-void ofxOculusDK2::setUsePredictedOrientation(bool usePredicted){
-	bUsePredictedOrientation = usePredicted;
-}
-bool ofxOculusDK2::getUsePredictiveOrientation(){
-	return bUsePredictedOrientation;
 }
 
 bool ofxOculusDK2::isHD(){

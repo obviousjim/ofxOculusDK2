@@ -66,9 +66,6 @@ class ofxOculusDK2
 	void draw();
     void drawSDK();
     
-    void setUsePredictedOrientation(bool usePredicted);
-	bool getUsePredictiveOrientation();
-	
     void dismissSafetyWarning();
     void recenterPose();
     
@@ -175,7 +172,6 @@ class ofxOculusDK2
     bool bHqDistortion;
     bool bTimewarpJitDelay;
     
-	bool bUsePredictedOrientation;
 	bool bUseBackground;
 	bool bUseOverlay;
 	float overlayZDistance;
