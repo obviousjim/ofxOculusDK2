@@ -437,17 +437,8 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
         windowSize = wsize; //Sizei(960, 540); avoid rotated output bug.
     }
     
-	// Start the sensor which provides the Rift’s pose and motion.
-	ovrHmd_ConfigureTracking(hmd, 
-		ovrTrackingCap_Orientation | 
-		ovrTrackingCap_MagYawCorrection | 
-		ovrTrackingCap_Position, 0);
-    
     updateHmdSettings();
   
-    bPositionTracking = (hmd->TrackingCaps & ovrTrackingCap_Position);
-
-	bSetup = true;
     bSetup = true;
 	return true;
 }
