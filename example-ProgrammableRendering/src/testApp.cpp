@@ -106,8 +106,7 @@ void testApp::draw()
 			
 			ofSetColor(255,255);
 			ofFill();
-			ofDrawBitmapString("ofxOculusRift by\nAndreas Muller\nJames George\nJason Walters\nElie Zananiri\nFPS:"+ofToString(ofGetFrameRate())+"\nPredictive Tracking " + (oculusRift.getUsePredictiveOrientation() ? "YES" : "NO"), 40, 40);
-            
+		  
             ofSetColor(0, 255, 0);
             ofNoFill();
             ofCircle(overlayRect.getCenter(), 20);
