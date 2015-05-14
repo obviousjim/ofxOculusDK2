@@ -69,6 +69,9 @@ class ofxOculusDK2
     void dismissSafetyWarning();
     void recenterPose();
     
+    bool getPositionTracking();
+    void setPositionTracking(bool state);
+    
     bool getNoMirrorToWindow();
     void setNoMirrorToWindow(bool state);
     bool getDisplayOff();

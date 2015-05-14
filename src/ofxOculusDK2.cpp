@@ -266,6 +266,17 @@ unsigned int ofxOculusDK2::setupHmdCaps() {
 void ofxOculusDK2::updateHmdSettings(){
     if (!bHmdSettingsChanged) return;
     
+    // Initialise the sensor which provides the Rift’s pose and motion.
+    unsigned int trackingCaps = ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection;
+    if (bPositionTracking)
+        trackingCaps |= ovrTrackingCap_Position;
+    
+    // only update trackingCaps if they've changed
+    if (trackingCaps != startTrackingCaps) {
+        ovrHmd_ConfigureTracking(hmd, trackingCaps, 0);
+        startTrackingCaps = trackingCaps;
+    }
+    
     // Initialize eye rendering information for ovrHmd_Configure.
     // The viewport sizes are re-computed in case RenderTargetSize changed due to HW limitations.
     eyeFov[0] = hmd->DefaultEyeFov[0];
@@ -437,11 +448,21 @@ bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
     bPositionTracking = (hmd->TrackingCaps & ovrTrackingCap_Position);
 
 	bSetup = true;
+    bSetup = true;
 	return true;
 }
 
 bool ofxOculusDK2::isSetup(){
 	return bSetup;
+}
+
+bool ofxOculusDK2::getPositionTracking(void) {
+    return bPositionTracking;
+}
+void ofxOculusDK2::setPositionTracking(bool state) {
+    bPositionTracking = state;
+    bHmdSettingsChanged = true;
+    updateHmdSettings();
 }
 
 void ofxOculusDK2::setDistortionCap(unsigned int cap, bool state) {
