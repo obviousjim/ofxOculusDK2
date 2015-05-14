@@ -197,21 +197,6 @@ ofxOculusDK2::~ofxOculusDK2(){
 	}
 }
 
-bool ofxOculusDK2::setup(){
-	ofFbo::Settings settings;
-	//settings.numSamples = 4;
-    settings.numSamples = 0;
-	settings.internalformat = GL_RGBA;
-    settings.useDepth = true;
-    settings.textureTarget = GL_TEXTURE_2D;
-    settings.minFilter = GL_LINEAR;
-    settings.maxFilter = GL_LINEAR;
-    settings.wrapModeHorizontal = GL_CLAMP_TO_EDGE;
-    settings.wrapModeVertical = GL_CLAMP_TO_EDGE;
-    settings.depthStencilInternalFormat = GL_DEPTH_COMPONENT24;
-	return setup(settings);
-}
-
 ofFbo::Settings ofxOculusDK2::renderTargetFboSettings() {
     ofFbo::Settings settings;
     //settings.numSamples = 4;
@@ -342,7 +327,6 @@ void ofxOculusDK2::updateHmdSettings(){
 
     if (!ovrHmd_ConfigureRendering( hmd, &config, distortionCaps, eyeFov, eyeRenderDesc ))
         return;
-
     
 #else
     //Generate distortion mesh for each eye
@@ -380,7 +364,7 @@ void ofxOculusDK2::updateHmdSettings(){
             ov++;
         }
         
-        //Register this mesh with the renderer
+        // Register this mesh with the renderer
         v.getIndices().resize(meshData.IndexCount);
         
         unsigned short * oi = meshData.pIndexData;
@@ -393,13 +377,13 @@ void ofxOculusDK2::updateHmdSettings(){
     }
     
     reloadShader();
-    
 #endif
     
     bHmdSettingsChanged = false;
 }
 
-bool ofxOculusDK2::setup(ofFbo::Settings& render_settings){
+
+bool ofxOculusDK2::setup(){
 	
 	if(bSetup){
 		ofLogError("ofxOculusDK2::setup") << "Already set up";

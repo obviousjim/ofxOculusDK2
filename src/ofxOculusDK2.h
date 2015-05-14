@@ -43,7 +43,7 @@ class ofxOculusDK2
 	ofCamera* baseCamera;
 	
 	bool setup();
-	bool setup(ofFbo::Settings& render_settings);
+	//bool setup(ofFbo::Settings& render_settings);
 
 	bool isSetup();
 	void reset();
