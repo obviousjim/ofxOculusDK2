@@ -71,8 +71,34 @@ class ofxOculusDK2
 	
     void dismissSafetyWarning();
     void recenterPose();
-    void enableVignette(bool state);
+    
+    bool getNoMirrorToWindow();
+    void setNoMirrorToWindow(bool state);
+    bool getDisplayOff();
+    void setDisplayOff(bool state);
+    bool getLowPersistence();
+    void setLowPersistence(bool state);
+    bool getDynamicPrediction();
+    void setDynamicPrediction(bool state);
+    bool getNoVsync();
+    void setNoVsync(bool state);
+    
+    bool getTimeWarp();
+    void setTimeWarp(bool state);
+    bool getVignette();
+    void setVignette(bool state);
+    bool getSRGB();
+    void setSRGB(bool state);
+    bool getOverdrive();
+    void setOverdrive(bool state);
+    bool getHqDistortion();
+    void setHqDistortion(bool state);
+    bool getTimewarpJitDelay();
+    void setTimewarpJitDelay(bool state);
 
+    float getPixelDensity();
+    void setPixelDensity(float density);
+    
 	void reloadShader();
 
 	ofQuaternion getOrientationQuat();
@@ -190,6 +216,11 @@ class ofxOculusDK2
     ofShader debugShader;   // XXX mattebb
     ofMesh debugMesh;
     ofImage debugImage;
+    
+    void setDistortionCap(unsigned int cap, bool state);
+    bool getDistortionCap(unsigned int cap);
+    void setHmdCap(unsigned int cap, bool state);
+    bool getHmdCap(unsigned int cap);
     
 	void setupEyeParams(ovrEyeType eye);
 	void setupShaderUniforms(ovrEyeType eye);

@@ -12,7 +12,7 @@
 
 #include <stdio.h>  // XXX mattebb for testing, printf
 
-#define SDK_RENDER 0
+#define SDK_RENDER 1
 
 #define GLSL(version, shader)  "#version " #version "\n#extension GL_ARB_texture_rectangle : enable\n" #shader
 static const char* OculusWarpVert = GLSL(120,
@@ -267,8 +267,6 @@ unsigned int ofxOculusDK2::setupHmdCaps() {
 void ofxOculusDK2::updateHmdSettings(){
     if (!bHmdSettingsChanged) return;
     
-        cout << "updateing settings" << endl;
-
     // Initialize eye rendering information for ovrHmd_Configure.
     // The viewport sizes are re-computed in case RenderTargetSize changed due to HW limitations.
     eyeFov[0] = hmd->DefaultEyeFov[0];
@@ -291,6 +289,8 @@ void ofxOculusDK2::updateHmdSettings(){
         
         renderTarget.allocate(render_settings);
         backgroundTarget.allocate(renderTargetSize.w/2, renderTargetSize.h);
+        
+        bRenderTargetSizeChanged = false;
     }
     
     eyeRenderDesc[0] = ovrHmd_GetRenderDesc(hmd, ovrEye_Left, eyeFov[0]);
@@ -445,11 +445,168 @@ bool ofxOculusDK2::isSetup(){
 	return bSetup;
 }
 
-void ofxOculusDK2::enableVignette(bool state) {
-    bVignette = state;
+void ofxOculusDK2::setDistortionCap(unsigned int cap, bool state) {
+    switch(cap) {
+        case ovrDistortionCap_TimeWarp:
+            bTimeWarp = state;
+            break;
+        case ovrDistortionCap_Vignette:
+            bVignette = state;
+            break;
+        case ovrDistortionCap_SRGB:
+            bSRGB = state;
+            break;
+        case ovrDistortionCap_Overdrive:
+            bOverdrive = state;
+            break;
+        case ovrDistortionCap_HqDistortion:
+            bHqDistortion = state;
+            break;
+        case ovrDistortionCap_TimewarpJitDelay:
+            bTimewarpJitDelay = state;
+            break;
+    }
     bHmdSettingsChanged = true;
     updateHmdSettings();
 }
+bool ofxOculusDK2::getDistortionCap(unsigned int cap) {
+    switch(cap) {
+        case ovrDistortionCap_TimeWarp:
+            return bTimeWarp;
+        case ovrDistortionCap_Vignette:
+            return bVignette;
+        case ovrDistortionCap_SRGB:
+            return bSRGB;
+        case ovrDistortionCap_Overdrive:
+            return bOverdrive;
+        case ovrDistortionCap_HqDistortion:
+            return bHqDistortion;
+        case ovrDistortionCap_TimewarpJitDelay:
+            return bTimewarpJitDelay;
+    }
+}
+
+/* yuck */
+bool ofxOculusDK2::getTimeWarp(void) {
+    return getDistortionCap(ovrDistortionCap_TimeWarp);
+}
+void ofxOculusDK2::setTimeWarp(bool state) {
+    setDistortionCap(ovrDistortionCap_TimeWarp, state);
+}
+bool ofxOculusDK2::getVignette(void) {
+    return getDistortionCap(ovrDistortionCap_Vignette);
+}
+void ofxOculusDK2::setVignette(bool state) {
+    setDistortionCap(ovrDistortionCap_Vignette, state);
+}
+bool ofxOculusDK2::getSRGB(void) {
+    return getDistortionCap(ovrDistortionCap_SRGB);
+}
+void ofxOculusDK2::setSRGB(bool state) {
+    setDistortionCap(ovrDistortionCap_SRGB, state);
+}
+bool ofxOculusDK2::getOverdrive(void) {
+    return getDistortionCap(ovrDistortionCap_Overdrive);
+}
+void ofxOculusDK2::setOverdrive(bool state) {
+    setDistortionCap(ovrDistortionCap_Overdrive, state);
+}
+bool ofxOculusDK2::getHqDistortion(void) {
+    return getDistortionCap(ovrDistortionCap_HqDistortion);
+}
+void ofxOculusDK2::setHqDistortion(bool state) {
+    setDistortionCap(ovrDistortionCap_HqDistortion, state);
+}
+bool ofxOculusDK2::getTimewarpJitDelay(void) {
+    return getDistortionCap(ovrDistortionCap_TimewarpJitDelay);
+}
+void ofxOculusDK2::setTimewarpJitDelay(bool state) {
+    setDistortionCap(ovrDistortionCap_TimewarpJitDelay, state);
+}
+
+
+void ofxOculusDK2::setHmdCap(unsigned int cap, bool state) {
+    switch(cap) {
+        case ovrHmdCap_NoMirrorToWindow:
+            bNoMirrorToWindow = state;
+            break;
+        case ovrHmdCap_DisplayOff:
+            bDisplayOff = state;
+            break;
+        case ovrHmdCap_LowPersistence:
+            bLowPersistence = state;
+            break;
+        case ovrHmdCap_DynamicPrediction:
+            bDynamicPrediction = state;
+            break;
+        case ovrHmdCap_NoVSync:
+            bNoVsync = state;
+            break;
+    }
+    bHmdSettingsChanged = true;
+    updateHmdSettings();
+}
+bool ofxOculusDK2::getHmdCap(unsigned int cap) {
+    switch(cap) {
+        case ovrHmdCap_NoMirrorToWindow:
+            return bNoMirrorToWindow;
+        case ovrHmdCap_DisplayOff:
+            return bDisplayOff;
+        case ovrHmdCap_LowPersistence:
+            return bLowPersistence;
+        case ovrHmdCap_DynamicPrediction:
+            return bDynamicPrediction;
+        case ovrHmdCap_NoVSync:
+            return bNoVsync;
+
+    }
+}
+
+/* yuck */
+bool ofxOculusDK2::getNoMirrorToWindow(void) {
+    return getHmdCap(ovrHmdCap_NoMirrorToWindow);
+}
+void ofxOculusDK2::setNoMirrorToWindow(bool state) {
+    setHmdCap(ovrHmdCap_NoMirrorToWindow, state);
+}
+bool ofxOculusDK2::getDisplayOff(void) {
+    return getHmdCap(ovrHmdCap_DisplayOff);
+}
+void ofxOculusDK2::setDisplayOff(bool state) {
+    setHmdCap(ovrHmdCap_DisplayOff, state);
+}
+bool ofxOculusDK2::getLowPersistence(void) {
+    return getHmdCap(ovrHmdCap_LowPersistence);
+}
+void ofxOculusDK2::setLowPersistence(bool state) {
+    setHmdCap(ovrHmdCap_LowPersistence, state);
+}
+bool ofxOculusDK2::getDynamicPrediction(void) {
+    return getHmdCap(ovrHmdCap_DynamicPrediction);
+}
+void ofxOculusDK2::setDynamicPrediction(bool state) {
+    setHmdCap(ovrHmdCap_DynamicPrediction, state);
+}
+bool ofxOculusDK2::getNoVsync(void) {
+    return getHmdCap(ovrHmdCap_NoVSync);
+}
+void ofxOculusDK2::setNoVsync(bool state) {
+    setHmdCap(ovrHmdCap_NoVSync, state);
+}
+
+
+float ofxOculusDK2::getPixelDensity(void) {
+    return pixelDensity;
+}
+void ofxOculusDK2::setPixelDensity(float density) {
+    pixelDensity = density;
+    bHmdSettingsChanged = true;
+    bRenderTargetSizeChanged = true;
+    updateHmdSettings();
+}
+
+
+
 
 void ofxOculusDK2::reset(){
 	if(bSetup){

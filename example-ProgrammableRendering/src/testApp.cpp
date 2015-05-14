@@ -217,7 +217,7 @@ void testApp::keyPressed(int key)
 		oculusRift.reloadShader();
 	}
     if(key == 'v'){
-        oculusRift.enableVignette(false);
+        oculusRift.setVignette( !oculusRift.getVignette() );
     }
 	
 	if(key == 'l'){
@@ -243,6 +243,13 @@ void testApp::keyPressed(int key)
 		ofShowCursor();
 	}
 	
+    if(key == 'd'){
+        oculusRift.setPixelDensity( oculusRift.getPixelDensity()-0.1 );
+    }
+    if(key == 'D'){
+        oculusRift.setPixelDensity( oculusRift.getPixelDensity()+0.1 );
+    }
+    
 	if(key == 'p'){
 		predictive = !predictive;
 		oculusRift.setUsePredictedOrientation(predictive);
