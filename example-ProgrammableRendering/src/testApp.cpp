@@ -249,11 +249,7 @@ void testApp::keyPressed(int key)
     if(key == 'D'){
         oculusRift.setPixelDensity( oculusRift.getPixelDensity()+0.1 );
     }
-    
-	if(key == 'p'){
-		predictive = !predictive;
-		oculusRift.setUsePredictedOrientation(predictive);
-	}
+
 }
 
 //--------------------------------------------------------------
