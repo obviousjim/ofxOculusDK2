@@ -71,6 +71,8 @@ class ofxOculusDK2
     void dismissSafetyWarning();
     void recenterPose();
     
+    float getUserEyeHeight(); // from standing height configured in oculus config user profile
+    
     bool getPositionTracking();
     void setPositionTracking(bool state);
     

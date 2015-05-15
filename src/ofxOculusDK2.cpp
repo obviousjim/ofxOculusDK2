@@ -473,6 +473,9 @@ void ofxOculusDK2::fullscreenOnRift() {
     
 }
 
+float ofxOculusDK2::getUserEyeHeight(void) {
+    return ovrHmd_GetFloat(hmd, OVR_KEY_EYE_HEIGHT, OVR_DEFAULT_EYE_HEIGHT);
+}
 
 bool ofxOculusDK2::getPositionTracking(void) {
     return bPositionTracking;

@@ -34,8 +34,9 @@ void testApp::setup()
     cam.setAutoDistance(false);
 	cam.begin();
 	cam.end();
-    cam.setGlobalPosition(0, 1.9, 3);
-    //cam.lookAt(ofVec3f(0));
+    
+    // set camera y to user eye height
+    cam.setGlobalPosition(0, oculusRift.getUserEyeHeight(), 3);
 }
 
 
