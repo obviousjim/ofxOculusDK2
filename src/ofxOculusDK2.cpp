@@ -431,6 +431,39 @@ bool ofxOculusDK2::isSetup(){
 	return bSetup;
 }
 
+
+void ofxOculusDK2::fullscreenOnRift() {
+    // Only for extended mode
+    if (!(hmd->HmdCaps & ovrHmdCap_ExtendDesktop)) return;
+    
+#ifdef TARGET_OSX    
+    // Get screen widths and heights from Quartz Services
+    // See https://developer.apple.com/library/mac/documentation/GraphicsImaging/Reference/Quartz_Services_Ref/index.html
+    
+    CGDisplayCount displayCount;
+    CGDirectDisplayID displays[32];
+    
+    // Grab the active displays
+    CGGetActiveDisplayList(32, displays, &displayCount);
+    int numDisplays= displayCount;
+    
+    // If two displays present, use the 2nd one. If one, use the first.
+    int whichDisplay = hmd->DisplayId;
+    
+    int displayHeight= CGDisplayPixelsHigh ( displays[whichDisplay] );
+    int displayWidth= CGDisplayPixelsWide ( displays[whichDisplay] );
+    CGRect displayBounds= CGDisplayBounds ( displays[whichDisplay] );
+    
+    ofRectangle riftDisplay = ofRectangle(displayBounds.origin.x, displayBounds.origin.y, displayWidth, displayHeight);
+    
+    ofSetWindowShape(riftDisplay.width, riftDisplay.height);
+    ofSetWindowPosition(riftDisplay.x+1, riftDisplay.y+1);
+    ofToggleFullscreen();
+#endif
+    
+}
+
+
 bool ofxOculusDK2::getPositionTracking(void) {
     return bPositionTracking;
 }

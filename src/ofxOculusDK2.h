@@ -41,7 +41,9 @@ class ofxOculusDK2
 	//the oculus rendering will create a stereo pair from this camera
 	//and mix in the head transformation
 	ofCamera* baseCamera;
-	
+    
+    void fullscreenOnRift();
+    
 	bool setup();
 	//bool setup(ofFbo::Settings& render_settings);
 

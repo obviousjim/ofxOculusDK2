@@ -8,17 +8,16 @@ void testApp::setup()
 	ofSetLogLevel( OF_LOG_VERBOSE );
 	//ofSetVerticalSync( true );
     ofEnableDepthTest();
-   
-    ofSetWindowPosition(1920, 0);
-    ofToggleFullscreen();
+    
 	showOverlay = false;
-	predictive = true;
 	
 	//ofHideCursor();
     
 	oculusRift.baseCamera = &cam;
 	oculusRift.setup();
-	
+    
+    oculusRift.fullscreenOnRift();
+    
     // needed for programmable renderer -- 0.5.0.1 SDK no longer needed?
     //ofViewport(ofGetNativeViewport());
     
