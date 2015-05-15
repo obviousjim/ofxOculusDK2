@@ -310,6 +310,17 @@ void ofxOculusDK2::updateHmdSettings(){
     config.Header.BackBufferSize = toOVRSizei(hmd->Resolution.w, hmd->Resolution.h);
     config.Header.Multisample = 0; // configurable ?
     
+    // TODO mattebb try actually testing this!
+    // WINDOWS try enabling direct mode
+#if 0
+#if defined(TARGET_WIN32)
+    if (!(hmd->HmdCaps & ovrHmdCap_ExtendDesktop)) {
+        ovrHmd_AttachToWindow(hmd, ofGetWin32Window(), NULL, NULL);
+    }
+    config.OGL.Window = ofGetWin32Window();
+#endif
+#endif
+    
     // Store texture pointers that will be passed for rendering.
     // Same texture is used, but with different viewports.
     memset(EyeTexture, 0, 2 * sizeof(ovrGLTexture));
@@ -381,7 +392,6 @@ void ofxOculusDK2::updateHmdSettings(){
     
     bHmdSettingsChanged = false;
 }
-
 
 bool ofxOculusDK2::setup(){
 	
