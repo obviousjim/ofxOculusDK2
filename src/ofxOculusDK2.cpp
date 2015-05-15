@@ -156,15 +156,15 @@ ofxOculusDK2::ofxOculusDK2(){
     bDisplayOff = false;
     bLowPersistence = true;
     bDynamicPrediction = true;
-    bNoVsync = true;
+    bNoVsync = false;
     
     // default distortion capabilities
     bTimeWarp = true;
     bVignette = true;
-    bSRGB = false;
+    bSRGB = true;
     bOverdrive = true;
-    bHqDistortion = false;
-    bTimewarpJitDelay = false;
+    bHqDistortion = true;
+    bTimewarpJitDelay = true;
     
 	bHmdSettingsChanged = true;
     bRenderTargetSizeChanged = true;
@@ -446,7 +446,7 @@ void ofxOculusDK2::fullscreenOnRift() {
     // Only for extended mode
     if (!(hmd->HmdCaps & ovrHmdCap_ExtendDesktop)) return;
     
-#ifdef TARGET_OSX    
+#ifdef TARGET_OSX
     // Get screen widths and heights from Quartz Services
     // See https://developer.apple.com/library/mac/documentation/GraphicsImaging/Reference/Quartz_Services_Ref/index.html
     
@@ -677,19 +677,15 @@ ofMatrix4x4 ofxOculusDK2::getViewMatrix(ovrEyeType eye) {
 }
 
 void ofxOculusDK2::setupEyeParams(ovrEyeType eye){
-	
+	/*
 	if(bUseBackground){
 		glPushAttrib(GL_ALL_ATTRIB_BITS);
 		glDisable(GL_LIGHTING);
 		ofDisableDepthTest();
 		backgroundTarget.getTextureReference().draw(toOf(eyeRenderViewport[eye]));
 		glPopAttrib();
-	}
+	}*/
     
-    // xxx mattebb
-    ovrHmd_GetEyePoses(hmd, frameIndex, hmdToEyeViewOffsets, headPose, NULL);
-
-    //cout << "viewport" << toOf(eyeRenderViewport[eye]) << endl;
 	ofViewport(toOf(eyeRenderViewport[eye]));
 
 	ofSetMatrixMode(OF_MATRIX_PROJECTION);
@@ -742,7 +738,7 @@ void ofxOculusDK2::reloadShader(){
 void ofxOculusDK2::beginBackground(){
 	bUseBackground = true;
 	insideFrame = true;
-    backgroundTarget.begin();
+    backgroundTarget.begin(false);
     ofClear(0.0, 0.0, 0.0);
     ofPushView();
     ofPushMatrix();
@@ -777,7 +773,7 @@ void ofxOculusDK2::beginOverlay(float overlayZ, float width, float height){
 	
 	overlayMesh.setMode(OF_PRIMITIVE_TRIANGLE_STRIP);
 	
-	overlayTarget.begin();
+	overlayTarget.begin(false);
     ofClear(0.0, 0.0, 0.0, 0.0);
 	
     ofPushView();
@@ -797,13 +793,15 @@ void ofxOculusDK2::beginLeftEye(){
 #if SDK_RENDER
     frameTiming = ovrHmd_BeginFrame(hmd, 0);
 #else
-    frameTiming = ovrHmd_BeginFrameTiming(hmd, ++frameIndex);
+    frameTiming = ovrHmd_BeginFrameTiming(hmd, 0);
 #endif
+    
+    ovrHmd_GetEyePoses(hmd, 0, hmdToEyeViewOffsets, headPose, NULL);
     
 	insideFrame = true;
 
-	renderTarget.begin();
-	ofClear(0,0,255);
+	renderTarget.begin(false);
+	ofClear(0);
 	
 	ofPushView();
 	ofPushMatrix();
@@ -998,20 +996,7 @@ ofVec2f ofxOculusDK2::gazePosition2D(){
 #if SDK_RENDER
 void ofxOculusDK2::draw(){
 	if(!bSetup) return;
-	
 	if(!insideFrame) return;
-
-    /*
-    static int done_debug=-1;
-     
-    if (done_debug==0) {
-        ofPixels dp;
-        renderTarget.readToPixels(dp);
-        debugImage.setFromPixels(dp);
-        debugImage.saveImage("debug.png");
-        done_debug=1;
-    }
-     */
     
     ovrHmd_EndFrame(hmd, headPose, EyeTexture);
 

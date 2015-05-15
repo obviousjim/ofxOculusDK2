@@ -4,31 +4,37 @@
 //--------------------------------------------------------------
 void testApp::setup()
 {
-	ofBackground(0);
+	//ofBackground(0.3,0.3,0.3);
 	ofSetLogLevel( OF_LOG_VERBOSE );
-	//ofSetVerticalSync( true );
     ofEnableDepthTest();
+	ofSetVerticalSync( false );
+	//ofHideCursor();
     
 	showOverlay = false;
 	
-	//ofHideCursor();
-    
 	oculusRift.baseCamera = &cam;
 	oculusRift.setup();
-    
     oculusRift.fullscreenOnRift();
     
     // needed for programmable renderer -- 0.5.0.1 SDK no longer needed?
     //ofViewport(ofGetNativeViewport());
     
-	for(int i = 0; i < 20; i++){
-		DemoSphere d;
+	for(int i = 0; i < 80; i++){
+		DemoBox d;
 		demos.push_back(d);
 	}
-    setupSpheres();
+    setupBoxes();
 	
     if (ofIsGLProgrammableRenderer())
-        sphereshader.load("Shaders_GL3/simple.vert", "Shaders_GL3/simple.frag");
+        bshader.load("Shaders_GL3/simple.vert", "Shaders_GL3/simple.frag");
+    
+    // ofBox uses texture coordinates from 0-1, so you can load whatever
+    // sized images you want and still use them to texture your box
+    // but we have to explicitly normalize our tex coords here
+    ofEnableNormalizedTexCoords();
+    
+    // loads the OF logo from disk
+    ofLogo.loadImage("of.png");
     
 	//enable mouse;
     cam.setAutoDistance(false);
@@ -43,6 +49,14 @@ void testApp::setup()
 //--------------------------------------------------------------
 void testApp::update()
 {
+    for(int i = 0; i < demos.size(); i++){
+        demos[i].floatPos.y = 4 * ofSignedNoise(ofGetElapsedTimef()/10.0,
+                                                demos[i].pos.x/1.0,
+                                                demos[i].pos.y/1.0,
+                                                demos[i].pos.z/1.0);
+        
+    }
+    /*
     for(int i = 0; i < demos.size(); i++){
 		demos[i].floatPos.y = 4 * ofSignedNoise(ofGetElapsedTimef()/10.0,
 									  demos[i].pos.x/1.0,
@@ -65,22 +79,24 @@ void testApp::update()
             demos[i].bGazeOver = (gazeDist < 25);
         }
     }
-    
+    */
 }
 
-void testApp::setupSpheres() {
+void testApp::setupBoxes() {
     
     for(int i = 0; i < demos.size(); i++) {
         demos[i].color = ofFloatColor(ofRandom(1.0),
                                  ofRandom(1.0),
                                  ofRandom(1.0));
         
-        demos[i].pos = ofVec3f(ofRandom(-10, 10),0,ofRandom(-10,10));
+        demos[i].pos = ofVec3f(ofRandom(-8, 8),0,ofRandom(-8,8));
+        
+        demos[i].box = ofBoxPrimitive();
+        demos[i].box.set(ofRandom(0.2,0.8));
+        demos[i].box.enableTextures();
         
         demos[i].floatPos.x = demos[i].pos.x;
 		demos[i].floatPos.z = demos[i].pos.z;
-        
-        demos[i].radius = 0.5; //ofRandom(0.04, 0.6);
         
         demos[i].bMouseOver = false;
         demos[i].bGazeOver  = false;
@@ -115,9 +131,9 @@ void testApp::draw()
 			oculusRift.endOverlay();
 		}
 
-        cam.begin();
-        cam.end();
-
+        //cam.begin();
+        //cam.end();
+        
 		oculusRift.beginLeftEye();
 		drawScene();
 		oculusRift.endLeftEye();
@@ -128,6 +144,7 @@ void testApp::draw()
 		
         oculusRift.draw();
 		        //cam.end();
+         
     }
 	else{
 		cam.begin();
@@ -140,52 +157,41 @@ void testApp::draw()
 //--------------------------------------------------------------
 void testApp::drawScene()
 {
-	
-    //ofPushMatrix();
-	//ofRotate(90, 0, 0, -1);
-// ofDrawBox(5.0f, 0.1f, 5.0f);
-	//ofPopMatrix();
 
     ofPushMatrix();
-	ofRotate(90, 0, 0, -1);
-    ofDrawGridPlane(10.0f, 2.0f, false );
+    ofRotate(90, 0, 0, -1);
+    ofSetColor(30);
+    ofDrawGridPlane(12.0f, 8.0f, false );
 	ofPopMatrix();
 
-    
-	ofPushStyle();
-	//ofNoFill();
-	if(ofIsGLProgrammableRenderer()) sphereshader.begin();
+    if(ofIsGLProgrammableRenderer()) bshader.begin();
+    ofLogo.getTextureReference().bind();
+
     for(int i = 0; i < demos.size(); i++){
 		ofPushMatrix();
 		ofTranslate(demos[i].floatPos);
 
         ofFloatColor col;
-        /*if (demos[i].bMouseOver)
-            col = ofColor::white.getLerped(ofColor::red, sin(ofGetElapsedTimef()*10.0)*.5+.5);
-        else if (demos[i].bGazeOver)
-            col = ofColor::white.getLerped(ofColor::green, sin(ofGetElapsedTimef()*10.0)*.5+.5);
-        else
-         */
-            col = demos[i].color * demos[i].floatPos.y;
-
+        // if (demos[i].bMouseOver) col = ofColor::white.getLerped(ofColor::red, sin(ofGetElapsedTimef()*10.0)*.5+.5);
+        
+        col = demos[i].color;
         if(ofIsGLProgrammableRenderer()) {
-            sphereshader.setUniform3f("color", col.r, col.g, col.b);
+            bshader.setUniform3f("color", col.r, col.g, col.b);
         } else {
             ofSetColor(col);
         }
         
-		ofSphere(demos[i].radius);
-
+        demos[i].box.draw();
+        
 		ofPopMatrix();
 	}
     
-    if(ofIsGLProgrammableRenderer()) sphereshader.setUniform3f("color", 0.0, 0.6, 0.3);
-    ofSphere(600);
-    
-    if(ofIsGLProgrammableRenderer()) sphereshader.end();
+    ofLogo.getTextureReference().unbind();
+    if(ofIsGLProgrammableRenderer()) bshader.end();
     
 	//billboard and draw the mouse
     
+    /*
 	if(oculusRift.isSetup()){
 		
 		ofPushMatrix();
@@ -195,9 +201,8 @@ void testApp::drawScene()
 		ofPopMatrix();
 
 	}
-	
-	ofPopStyle();
-    
+     */
+
 }
 
 //--------------------------------------------------------------
@@ -211,7 +216,13 @@ void testApp::keyPressed(int key)
 		//gotta toggle full screen for it to be right
 		ofToggleFullscreen();
 	}
+    
 	
+    if(key == 'a'){
+        cout << "FPS " << ofGetFrameRate() << " TARGET " << ofGetTargetFrameRate() << endl;
+    }
+    
+    
 	if(key == 's'){
 		oculusRift.reloadShader();
 	}
@@ -233,7 +244,7 @@ void testApp::keyPressed(int key)
         oculusRift.recenterPose();
     }
     if(key == 'z'){
-		setupSpheres();
+		setupBoxes();
 	}
 	if(key == 'h'){
 		ofHideCursor();

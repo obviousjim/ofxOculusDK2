@@ -4,13 +4,13 @@
 #include "ofxOculusDK2.h"
 
 typedef struct{
+    ofBoxPrimitive box;
 	ofFloatColor color;
 	ofVec3f pos;
 	ofVec3f floatPos;
-	float radius;
     bool bMouseOver;
     bool bGazeOver;
-} DemoSphere;
+} DemoBox;
 
 class testApp : public ofBaseApp
 {
@@ -20,7 +20,7 @@ class testApp : public ofBaseApp
 	void update();
 	void draw();
 	
-    void setupSpheres();
+    void setupBoxes();
     
 	void drawScene();
 	
@@ -36,12 +36,13 @@ class testApp : public ofBaseApp
 
 	ofxOculusDK2		oculusRift;
 
-	ofLight				light;
-	ofEasyCam			cam;
+    ofImage ofLogo; // the OF logo
+	ofLight light;
+	ofEasyCam cam;
 	bool showOverlay;
-	bool predictive;
-	vector<DemoSphere> demos;
-    ofShader sphereshader;
+
+	vector<DemoBox> demos;
+    ofShader bshader;
     
     ofVec3f cursor2D;
     ofVec3f cursor3D;
