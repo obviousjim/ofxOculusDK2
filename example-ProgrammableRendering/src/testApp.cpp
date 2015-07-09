@@ -4,12 +4,10 @@
 //--------------------------------------------------------------
 void testApp::setup()
 {
-	//ofBackground(0.3,0.3,0.3);
 	ofSetLogLevel( OF_LOG_VERBOSE );
     ofEnableDepthTest();
 	ofSetVerticalSync( false );
-	//ofHideCursor();
-    
+
 	showOverlay = false;
 	
 	oculusRift.baseCamera = &cam;
@@ -57,14 +55,6 @@ void testApp::update()
         
     }
     /*
-    for(int i = 0; i < demos.size(); i++){
-		demos[i].floatPos.y = 4 * ofSignedNoise(ofGetElapsedTimef()/10.0,
-									  demos[i].pos.x/1.0,
-									  demos[i].pos.z/1.0,
-									  demos[i].radius*1.0) * demos[i].radius*2;
-		
-	}
-    
     if(oculusRift.isSetup()){
         ofRectangle viewport = oculusRift.getOculusViewport();
         for(int i = 0; i < demos.size(); i++){
@@ -130,9 +120,6 @@ void testApp::draw()
 			ofPopStyle();
 			oculusRift.endOverlay();
 		}
-
-        //cam.begin();
-        //cam.end();
         
 		oculusRift.beginLeftEye();
 		drawScene();
@@ -143,8 +130,6 @@ void testApp::draw()
 		oculusRift.endRightEye();
 		
         oculusRift.draw();
-		        //cam.end();
-         
     }
 	else{
 		cam.begin();
@@ -190,7 +175,6 @@ void testApp::drawScene()
     if(ofIsGLProgrammableRenderer()) bshader.end();
     
 	//billboard and draw the mouse
-    
     /*
 	if(oculusRift.isSetup()){
 		
