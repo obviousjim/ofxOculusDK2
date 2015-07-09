@@ -12,7 +12,7 @@ OF_PATH = ../../..
 ADDONS_PATH = $(OF_PATH)/addons
 
 // ofxOculusRift
-OFX_OCULUSRIFT_HEADERS = $(ADDONS_PATH)/ofxOculusDK2/src
+OFX_OCULUSRIFT_HEADERS = $(ADDONS_PATH)/ofxOculusDK2/libs/LibOVR/include/ $(ADDONS_PATH)/ofxOculusDK2/src
 
 
 // all addons
