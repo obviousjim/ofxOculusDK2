@@ -54,13 +54,13 @@ void testApp::update()
                                                 demos[i].pos.z/1.0);
         
     }
-    /*
+    
     if(oculusRift.isSetup()){
         ofRectangle viewport = oculusRift.getOculusViewport();
         for(int i = 0; i < demos.size(); i++){
             // mouse selection
 			float mouseDist = oculusRift.distanceFromMouse(demos[i].floatPos);
-            demos[i].bMouseOver = (mouseDist < 50);
+            demos[i].bMouseOver = (mouseDist < 100);
             
             // gaze selection
             ofVec3f screenPos = oculusRift.worldToScreen(demos[i].floatPos, true);
@@ -69,7 +69,7 @@ void testApp::update()
             demos[i].bGazeOver = (gazeDist < 25);
         }
     }
-    */
+    
 }
 
 void testApp::setupBoxes() {
@@ -157,9 +157,11 @@ void testApp::drawScene()
 		ofTranslate(demos[i].floatPos);
 
         ofFloatColor col;
-        // if (demos[i].bMouseOver) col = ofColor::white.getLerped(ofColor::red, sin(ofGetElapsedTimef()*10.0)*.5+.5);
+        if (demos[i].bMouseOver)
+            col = ofColor::white;
+        else
+            col = demos[i].color;
         
-        col = demos[i].color;
         if(ofIsGLProgrammableRenderer()) {
             bshader.setUniform3f("color", col.r, col.g, col.b);
         } else {
@@ -175,7 +177,7 @@ void testApp::drawScene()
     if(ofIsGLProgrammableRenderer()) bshader.end();
     
 	//billboard and draw the mouse
-    /*
+    
 	if(oculusRift.isSetup()){
 		
 		ofPushMatrix();
@@ -185,7 +187,7 @@ void testApp::drawScene()
 		ofPopMatrix();
 
 	}
-     */
+    
 
 }
 
