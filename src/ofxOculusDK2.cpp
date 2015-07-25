@@ -9,6 +9,7 @@
 //  Updated for DK2 by Matt Ebb October 2014
 
 #include "ofxOculusDK2.h"
+#include "ofAppGLFWWindow.h"
 
 #include <stdio.h>  // XXX mattebb for testing, printf
 
@@ -430,6 +431,18 @@ bool ofxOculusDK2::setup(){
         wsize.w = ofGetWidth(); wsize.h = ofGetHeight();
         windowSize = wsize; //Sizei(960, 540); avoid rotated output bug.
     }
+    
+#if SDK_RENDER
+    // WARNING: Slightly dangerous!
+    // We need to disable double buffering when using SDK rendering,
+    // Since the oculus SDK takes care of drawing to screen at VSync time
+    // If OF tries to swap buffers too, it conflicts and messes up the timing,
+    // preventing the Oculus SDK from Vsyncing properly and causing all kinds of judder.
+    
+    // OF uses GLFW by default on PC-ish platforms, so we assume it here.
+    // If it's not using GLFW, maybe this might cause a nasty crash :)
+    ((ofAppGLFWWindow*)ofGetWindowPtr())->setDoubleBuffering( false );
+#endif
     
     updateHmdSettings();
   
