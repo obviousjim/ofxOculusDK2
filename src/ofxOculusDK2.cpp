@@ -470,8 +470,14 @@ void ofxOculusDK2::fullscreenOnRift() {
     CGGetActiveDisplayList(32, displays, &displayCount);
     int numDisplays= displayCount;
     
-    // If two displays present, use the 2nd one. If one, use the first.
-    int whichDisplay = hmd->DisplayId;
+    // iterate over active displays to find the hmd
+    int whichDisplay=0;
+    for (int i=0; i < numDisplays; i++) {
+        if (displays[i] == hmd->DisplayId) {
+            whichDisplay = i;
+            break;
+        }
+    }
     
     int displayHeight= CGDisplayPixelsHigh ( displays[whichDisplay] );
     int displayWidth= CGDisplayPixelsWide ( displays[whichDisplay] );
